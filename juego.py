@@ -5,12 +5,12 @@ def menu():
     pantalla = pygame.display.set_mode((info_pantalla.current_w, info_pantalla.current_h), pygame.FULLSCREEN)
     x = info_pantalla.current_w  
     y = info_pantalla.current_h
-    mid_x = x/2
+    mid_x = x/2 - 400
     mid_y = y/2
     pygame.display.set_caption("El prime")
     fondo = pygame.image.load("fondo menu.png").convert()
     fondo = pygame.transform.scale(fondo, (info_pantalla.current_w, info_pantalla.current_h))
-    rec1 = pygame.draw.rect()
+    rec1 = pygame.draw.rect(pantalla,(0,0,255),(mid_x,mid_y,400,75))
     pygame.display.flip()
     ejecutar = True
     while ejecutar:
@@ -18,6 +18,7 @@ def menu():
             if evento.type == pygame.QUIT:
                 ejecutar = False
         pantalla.blit(fondo, (0, 0))
+        rec1 = pygame.draw.rect(pantalla,(0,0,255),(mid_x,mid_y,200,75))
         pygame.display.flip()
     pygame.quit()
 menu()
