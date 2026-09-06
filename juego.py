@@ -1,5 +1,7 @@
 import pygame
 import sys
+import os
+import cv2
 
 pygame.init()
 
@@ -7,14 +9,13 @@ pantalla = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
 ancho, alto = pantalla.get_size()
 pygame.display.set_caption("La Matanza Avanza")
 
-fondo = pygame.image.load("fondo menu.png")
-fondo = pygame.transform.scale(fondo, (ancho, alto)).convert()
+video = cv2.VideoCapture("trenfondo.mp4")
 
 anchoPanel = int(ancho * 0.32)
 
 panelIzquierdo = pygame.Surface((anchoPanel, alto))
 panelIzquierdo.fill((0, 0, 0))
-panelIzquierdo.set_alpha(217)
+panelIzquierdo.set_alpha(170)
 
 panelDerecho = pygame.Surface((ancho - anchoPanel, alto))
 panelDerecho.fill((0, 0, 0))
@@ -68,7 +69,17 @@ while jugando:
                     if b["accion"] == "salir":
                         jugando = False
 
-    pantalla.blit(fondo, (0, 0))
+    exito, frame = video.read()
+    if not exito:
+        video.set(cv2.CAP_PROP_POS_FRAMES, 0)
+        exito, frame = video.read()
+
+    if exito:
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        frame = cv2.resize(frame, (ancho, alto))
+        fondoSurf = pygame.surfarray.make_surface(frame.swapaxes(0, 1))
+        pantalla.blit(fondoSurf, (0, 0))
+
     pantalla.blit(panelIzquierdo, (0, 0))
     pantalla.blit(panelDerecho, (anchoPanel, 0))
 
@@ -90,5 +101,6 @@ while jugando:
     pygame.display.flip()
     reloj.tick(60)
 
+video.release()
 pygame.quit()
 sys.exit()
