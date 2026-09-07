@@ -1,5 +1,16 @@
 import pygame
 import cv2
+import os
+
+# C
+def ccontinuara(ancho, alto):
+    ruta = "F/Continuara....png" if os.path.exists("F/Continuara....png") else "Continuara....png"
+    img = pygame.image.load(ruta).convert()
+    return pygame.transform.scale(img, (ancho, alto))
+
+def dcontinuara(pantalla, imagen):
+    pantalla.blit(imagen, (0, 0))
+# C
 
 def capas(ancho, alto, anchopanel):
     panelizq = pygame.Surface((anchopanel, alto))
@@ -13,8 +24,9 @@ def capas(ancho, alto, anchopanel):
     return panelizq, panelder
 
 def fuentes(alto):
-    fuentetit = pygame.font.Font("minecraft.ttf", int(alto * 0.065))
-    fuentebtn = pygame.font.Font("minecraft.ttf", int(alto * 0.038))
+    ruta = "F/minecraft.ttf" if os.path.exists("F/minecraft.ttf") else "minecraft.ttf"
+    fuentetit = pygame.font.Font(ruta, int(alto * 0.065))
+    fuentebtn = pygame.font.Font(ruta, int(alto * 0.038))
     return fuentetit, fuentebtn
 
 def grosor(fuente, texto, color, g=2):
@@ -79,3 +91,90 @@ def dibujar(pantalla, fondosurf, panelizq, panelder, anchopanel, t1, t2, rect1, 
         txtsurf = fuentebtn.render(b["texto"], True, (255, 255, 255))
         txtrect = txtsurf.get_rect(center=b["rect"].center)
         pantalla.blit(txtsurf, txtrect)
+
+def cargarmapa(ancho, alto):
+    ruta = "F/mapa.jpg" if os.path.exists("F/mapa.jpg") else "mapa.jpg"
+    img = pygame.image.load(ruta)
+    return pygame.transform.scale(img, (ancho, alto)).convert()
+
+def cargarsprites(wjug, hjug):
+    dic = {
+        "abajo": [0, 1, 2],
+        "arriba": [4, 5, 6],
+        "derecha": [12, 13, 14],
+        "izquierda": [8, 9, 10]
+    }
+    sprs = {}
+    for d, numsf in dic.items():
+        sprs[d] = []
+        for n in numsf:
+            img = pygame.image.load(f"sprites/Mc/MC{n:03d}.png").convert_alpha()
+            img = pygame.transform.scale(img, (wjug, hjug))
+            sprs[d].append(img)
+    return sprs
+
+def crearjugador(ancho, alto):
+    hjug = int(alto * 0.18)
+    wjug = int(hjug * (68 / 96))
+    xjug = ancho // 2
+    yjug = int(alto * 0.50)
+    rectjug = pygame.Rect(xjug, yjug, wjug, hjug)
+    vel = int(alto * 0.009)
+    sprs = cargarsprites(wjug, hjug)
+
+    jugdatos = {
+        "rect": rectjug,
+        "vel": vel,
+        "sprs": sprs,
+        "dir": "abajo",
+        "frame": 1.0
+    }
+    return jugdatos
+
+def moverjugador(jugdatos, teclas, ancho, alto):
+    rect = jugdatos["rect"]
+    vel = jugdatos["vel"]
+    mov = False
+
+    if teclas[pygame.K_w] or teclas[pygame.K_UP]:
+        rect.y -= vel
+        jugdatos["dir"] = "arriba"
+        mov = True
+    elif teclas[pygame.K_s] or teclas[pygame.K_DOWN]:
+        rect.y += vel
+        jugdatos["dir"] = "abajo"
+        mov = True
+
+    if teclas[pygame.K_a] or teclas[pygame.K_LEFT]:
+        rect.x -= vel
+        jugdatos["dir"] = "izquierda"
+        mov = True
+    elif teclas[pygame.K_d] or teclas[pygame.K_RIGHT]:
+        rect.x += vel
+        jugdatos["dir"] = "derecha"
+        mov = True
+
+    limitesuperior = int(alto * 0.40)
+    limiteinferior = int(alto * 0.73)
+
+    if rect.bottom < limitesuperior:
+        rect.bottom = limitesuperior
+    if rect.bottom > limiteinferior:
+        rect.bottom = limiteinferior
+    if rect.left < 0:
+        rect.left = 0
+    if rect.right > ancho:
+        rect.right = ancho
+
+    if mov:
+        jugdatos["frame"] = (jugdatos["frame"] + 0.15) % 4
+    else:
+        jugdatos["frame"] = 1.0
+
+def dibujarjuego(pantalla, mapagraf, jugdatos):
+    pantalla.blit(mapagraf, (0, 0))
+    d = jugdatos["dir"]
+    secuencia = [0, 1, 2, 1]
+    idx = secuencia[int(jugdatos["frame"]) % 4]
+    spr = jugdatos["sprs"][d][idx]
+    pantalla.blit(spr, jugdatos["rect"].topleft)
