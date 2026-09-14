@@ -19,6 +19,15 @@ botones = fn.btnlista(anchopanel, alto)
 
 mapagraf = fn.cargarmapa(ancho, alto)
 jugdatos = fn.crearjugador(ancho, alto)
+vidas = fn.cargarvidas(alto)
+bfuentetitulo, bfontederrota, botonesderrota = fn.bderrota(ancho, alto)
+bloque_temporal = pygame.Rect(
+    int(ancho * 0.78),
+    int(alto * 0.55),
+    int(ancho * 0.08),
+    int(alto * 0.12)
+)
+enemigos = [bloque_temporal]
 # C
 icontinuara = fn.ccontinuara(ancho, alto)
 # C
@@ -37,7 +46,7 @@ while jugando:
         elif evento.type == pygame.KEYDOWN:
             # C
             if evento.key == pygame.K_ESCAPE:
-                if estado in ("juego", "continuara"):
+                if estado in ("juego", "continuara", "derrota"):
                     estado = "menu"
                 else:
                     jugando = False
@@ -53,6 +62,14 @@ while jugando:
                             # C
                         elif b["accion"] == "salir":
                             jugando = False
+            elif estado == "derrota":
+                for b in botonesderrota:
+                    if b["rect"].collidepoint(mouse):
+                        if b["accion"] == "jugar":
+                            jugdatos = fn.crearjugador(ancho, alto)
+                            estado = "juego"
+                        elif b["accion"] == "menu":
+                            estado = "menu"
 
     if estado == "menu":
         fondosurf = fn.framevideo(video, ancho, alto)
@@ -60,15 +77,20 @@ while jugando:
     elif estado == "juego":
         # C
         fn.moverjugador(jugdatos, teclas, ancho, alto)
-        if jugdatos["rect"].right >= ancho:
+        fn.recibirdaño(jugdatos, enemigos)
+        if jugdatos["vida"] <= 0:
+            estado = "derrota"
+        elif jugdatos["rect"].right >= ancho:
             estado = "continuara"
         else:
-            fn.dibujarjuego(pantalla, mapagraf, jugdatos)
+            fn.dibujarjuego(pantalla, mapagraf, jugdatos, vidas, enemigos)
         # C
     elif estado == "continuara":
         # C
         fn.dcontinuara(pantalla, icontinuara)
         # C
+    elif estado == "derrota":
+        fn.dibujarperdida(pantalla, jugdatos, mapagraf, bfuentetitulo, bfontederrota, botonesderrota, mouse)
 
     pygame.display.flip()
     reloj.tick(60)

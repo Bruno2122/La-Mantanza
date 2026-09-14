@@ -12,6 +12,67 @@ def dcontinuara(pantalla, imagen):
     pantalla.blit(imagen, (0, 0))
 # C
 
+def cargarvidas(alto):
+    vidas = []
+    altovida = int(alto * 0.14)
+    for numero in range(6):
+        ruta = f"Sprites/Vida/vida{numero:02d}.png"
+        img = pygame.image.load(ruta).convert_alpha()
+        proporcion = img.get_width() / img.get_height()
+        vidas.append(pygame.transform.scale(img, (int(altovida * proporcion), altovida)))
+    return vidas
+
+def dibujarvida(pantalla, vidas, jugdatos):
+    vida = max(0, min(jugdatos["vida"], 5))
+    spritevida = 5 - vida
+    rectvida = vidas[spritevida].get_rect(bottomleft=(0, pantalla.get_height()))
+    pantalla.blit(vidas[spritevida], rectvida)
+
+def recibirdaño(jugdatos, objetivos):
+    ahora = pygame.time.get_ticks()
+    if ahora - jugdatos["ultimo_daño"] < 1000:
+        return
+
+    for objetivo in objetivos:
+        if jugdatos["rect"].colliderect(objetivo):
+            jugdatos["vida"] = max(0, jugdatos["vida"] - 1)
+            jugdatos["ultimo_daño"] = ahora
+            return
+
+def bderrota(ancho, alto):
+    ruta = "F/minecraft.ttf" if os.path.exists("F/minecraft.ttf") else "minecraft.ttf"
+    fuentetitulo = pygame.font.Font(ruta, int(alto * 0.065))
+    fuente = pygame.font.Font(ruta, int(alto * 0.038))
+    anchopanel = int(ancho * 0.32)
+    anchoboton = int(anchopanel * 0.78 * 1.5)
+    altoboton = int(alto * 0.08 * 1.5)
+    xboton = (ancho - anchoboton) // 2
+    return fuentetitulo, fuente, [
+        {"texto": "VOLVER A JUGAR", "rect": pygame.Rect(xboton, int(alto * 0.52), anchoboton, altoboton), "accion": "jugar"},
+        {"texto": "MENU", "rect": pygame.Rect(xboton, int(alto * 0.68), anchoboton, altoboton), "accion": "menu"}
+    ]
+
+def dibujarperdida(pantalla, jugdatos, mapagraf, fuentetitulo, fuente, botones, mouse):
+    dibujarjuego(pantalla, mapagraf, jugdatos, [], [], False)
+
+    capa = pygame.Surface(pantalla.get_size(), pygame.SRCALPHA)
+    capa.fill((180, 0, 0, 77))
+    pantalla.blit(capa, (0, 0))
+
+    titulo = grosor(fuentetitulo, "PERDISTE,", (255, 255, 255), 2)
+    subtitulo = grosor(fuentetitulo, "ALTO BOT", (255, 255, 255), 2)
+    pantalla.blit(titulo, titulo.get_rect(center=(pantalla.get_width() // 2, int(pantalla.get_height() * 0.20))))
+    pantalla.blit(subtitulo, subtitulo.get_rect(center=(pantalla.get_width() // 2, int(pantalla.get_height() * 0.32))))
+
+    for boton in botones:
+        activo = boton["rect"].collidepoint(mouse)
+        colorf = (95, 95, 95) if activo else (75, 75, 75)
+        colorb = (130, 130, 130) if activo else (45, 45, 45)
+        pygame.draw.rect(pantalla, colorf, boton["rect"], border_radius=6)
+        pygame.draw.rect(pantalla, colorb, boton["rect"], width=3, border_radius=6)
+        texto = fuente.render(boton["texto"], True, (255, 255, 255))
+        pantalla.blit(texto, texto.get_rect(center=boton["rect"].center))
+
 def capas(ancho, alto, anchopanel):
     panelizq = pygame.Surface((anchopanel, alto))
     panelizq.fill((0, 0, 0))
@@ -127,7 +188,9 @@ def crearjugador(ancho, alto):
         "vel": vel,
         "sprs": sprs,
         "dir": "abajo",
-        "frame": 1.0
+        "frame": 1.0,
+        "vida": 5,
+        "ultimo_daño": -1000
     }
     return jugdatos
 
@@ -171,10 +234,14 @@ def moverjugador(jugdatos, teclas, ancho, alto):
     else:
         jugdatos["frame"] = 1.0
 
-def dibujarjuego(pantalla, mapagraf, jugdatos):
+def dibujarjuego(pantalla, mapagraf, jugdatos, vidas, objetivos, mostrarvida=True):
     pantalla.blit(mapagraf, (0, 0))
+    for objetivo in objetivos:
+        pygame.draw.rect(pantalla, (120, 55, 35), objetivo, border_radius=6)
     d = jugdatos["dir"]
     secuencia = [0, 1, 2, 1]
     idx = secuencia[int(jugdatos["frame"]) % 4]
     spr = jugdatos["sprs"][d][idx]
     pantalla.blit(spr, jugdatos["rect"].topleft)
+    if mostrarvida:
+        dibujarvida(pantalla, vidas, jugdatos)

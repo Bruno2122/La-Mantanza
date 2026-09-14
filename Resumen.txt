@@ -1,0 +1,520 @@
+Resumen general
+
+El programa está dividido en dos archivos:
+
+- `juego.py`: controla el flujo principal del juego.
+- `funciones.py`: contiene funciones reutilizables para dibujar, mover al jugador, cargar imágenes y controlar vidas.
+
+La biblioteca principal es **Pygame**, que permite crear la ventana, dibujar imágenes, detectar teclado y mouse, y controlar el tiempo del juego. **OpenCV** se usa para reproducir el video del menú.
+
+## 1. Importaciones
+
+```python
+import pygame
+import sys
+import cv2
+import funciones as fn
+```
+
+- `pygame`: ventanas, imágenes, teclado, mouse, rectángulos y gráficos.
+- `sys`: permite cerrar correctamente el programa con `sys.exit()`.
+- `cv2`: reproduce el video del fondo del menú.
+- `funciones as fn`: importa `funciones.py` usando el nombre corto `fn`.
+
+Por ejemplo:
+
+```python
+fn.crearjugador(...)
+```
+
+significa que se está usando la función `crearjugador` del archivo `funciones.py`.
+
+## 2. Inicialización de Pygame
+
+```python
+pygame.init()
+```
+
+Inicializa los módulos de Pygame necesarios para gráficos, sonido, teclado, etc.
+
+```python
+pantalla = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+```
+
+Crea una ventana en pantalla completa. Los valores `(0, 0)` hacen que Pygame use la resolución actual del monitor.
+
+```python
+ancho, alto = pantalla.get_size()
+```
+
+Guarda el ancho y el alto de la pantalla para adaptar posiciones y tamaños.
+
+## 3. Video del menú
+
+```python
+video = cv2.VideoCapture(
+    "F/trenfondo.mp4"
+    if cv2.VideoCapture("F/trenfondo.mp4").isOpened()
+    else "trenfondo.mp4"
+)
+```
+
+Intenta cargar el video desde la carpeta `F`. Si esa ruta no funciona, intenta buscarlo en la carpeta principal.
+
+La función `framevideo()` lee un frame del video, lo convierte de formato BGR a RGB y lo transforma en una superficie de Pygame.
+
+## 4. Creación de elementos iniciales
+
+```python
+panelizq, panelder = fn.capas(ancho, alto, anchopanel)
+```
+
+Crea los paneles oscuros del menú.
+
+```python
+fuentetit, fuentebtn = fn.fuentes(alto)
+```
+
+Carga la fuente Minecraft con dos tamaños:
+
+- Fuente grande para títulos.
+- Fuente más pequeña para botones.
+
+```python
+t1, t2, rect1, rect2 = fn.titulos(...)
+```
+
+Crea los textos:
+
+- `La Matanza,`
+- `Avanza`
+
+También calcula los rectángulos donde se dibujan.
+
+```python
+botones = fn.btnlista(...)
+```
+
+Crea los botones del menú:
+
+- `JUGAR`
+- `AJUSTES`
+- `SALIR`
+
+El botón de ajustes ya está preparado, aunque todavía no tiene comportamiento.
+
+## 5. Mapa y jugador
+
+```python
+mapagraf = fn.cargarmapa(ancho, alto)
+```
+
+Carga `mapa.jpg`, lo escala al tamaño de la pantalla y lo guarda como imagen del mapa.
+
+```python
+jugdatos = fn.crearjugador(ancho, alto)
+```
+
+Crea un diccionario con los datos del jugador:
+
+```python
+{
+    "rect": rectjug,
+    "vel": vel,
+    "sprs": sprs,
+    "dir": "abajo",
+    "frame": 1.0,
+    "vida": 5,
+    "ultimo_daño": -1000
+}
+```
+
+- `rect`: posición y tamaño del jugador.
+- `vel`: velocidad de movimiento.
+- `sprs`: sprites del jugador.
+- `dir`: dirección actual.
+- `frame`: cuadro de animación.
+- `vida`: vida actual.
+- `ultimo_daño`: momento del último daño recibido.
+
+## 6. Sistema de vidas
+
+```python
+vidas = fn.cargarvidas(alto)
+```
+
+Carga los archivos:
+
+```text
+vida00.png
+vida01.png
+vida02.png
+vida03.png
+vida04.png
+vida05.png
+```
+
+La correspondencia es inversa:
+
+- `vida00`: 5 vidas.
+- `vida01`: 4 vidas.
+- `vida02`: 3 vidas.
+- `vida03`: 2 vidas.
+- `vida04`: 1 vida.
+- `vida05`: 0 vidas.
+
+Esto se consigue con:
+
+```python
+spritevida = 5 - vida
+```
+
+La barra se coloca en la esquina inferior izquierda usando:
+
+```python
+get_rect(bottomleft=(0, pantalla.get_height()))
+```
+
+Eso hace que su esquina inferior izquierda coincida con la esquina inferior izquierda de la pantalla.
+
+## 7. Bloque dañino
+
+```python
+bloque_temporal = pygame.Rect(
+    int(ancho * 0.78),
+    int(alto * 0.55),
+    int(ancho * 0.08),
+    int(alto * 0.12)
+)
+```
+
+Crea un rectángulo temporal en la parte derecha de la pantalla.
+
+Los valores representan:
+
+```text
+posición X
+posición Y
+ancho
+alto
+```
+
+Después se guarda en una lista:
+
+```python
+enemigos = [bloque_temporal]
+```
+
+Aunque se llama `enemigos`, también puede contener objetos, trampas u obstáculos dañinos.
+
+## 8. Detección de daño
+
+```python
+fn.recibirdaño(jugdatos, enemigos)
+```
+
+La función revisa si el rectángulo del jugador toca alguno de los objetivos:
+
+```python
+jugdatos["rect"].colliderect(objetivo)
+```
+
+`colliderect()` devuelve `True` cuando dos rectángulos se superponen.
+
+Cuando hay colisión:
+
+```python
+jugdatos["vida"] = max(0, jugdatos["vida"] - 1)
+```
+
+Se resta una vida, pero nunca puede bajar de cero.
+
+También se utiliza:
+
+```python
+if ahora - jugdatos["ultimo_daño"] < 1000:
+    return
+```
+
+Esto da un segundo de invulnerabilidad después de recibir daño. Evita que el jugador pierda todas las vidas en unos pocos frames mientras permanece encima del bloque.
+
+## 9. Movimiento del jugador
+
+```python
+fn.moverjugador(jugdatos, teclas, ancho, alto)
+```
+
+Detecta las teclas:
+
+- `W` o flecha arriba: subir.
+- `S` o flecha abajo: bajar.
+- `A` o flecha izquierda: izquierda.
+- `D` o flecha derecha: derecha.
+
+Por ejemplo:
+
+```python
+rect.x += vel
+```
+
+mueve al jugador hacia la derecha.
+
+## 10. Límites del mapa
+
+```python
+limitesuperior = int(alto * 0.40)
+limiteinferior = int(alto * 0.73)
+```
+
+Define la zona vertical donde puede caminar el personaje.
+
+```python
+if rect.bottom < limitesuperior:
+    rect.bottom = limitesuperior
+```
+
+Usa `rect.bottom`, es decir, los pies del personaje. De esa manera, el límite superior se calcula tomando como referencia los pies y no la cabeza.
+
+También se evita que salga por los lados:
+
+```python
+if rect.left < 0:
+    rect.left = 0
+
+if rect.right > ancho:
+    rect.right = ancho
+```
+
+## 11. Animación del jugador
+
+```python
+if mov:
+    jugdatos["frame"] = (jugdatos["frame"] + 0.15) % 4
+else:
+    jugdatos["frame"] = 1.0
+```
+
+Cuando el personaje se mueve, cambia de frame para crear animación.
+
+El operador `% 4` hace que la animación vuelva a empezar después del cuarto frame.
+
+En `dibujarjuego()`:
+
+```python
+secuencia = [0, 1, 2, 1]
+idx = secuencia[int(jugdatos["frame"]) % 4]
+```
+
+La secuencia hace que la animación avance y luego vuelva al frame intermedio, produciendo un ciclo más natural.
+
+## 12. Estados del juego
+
+La variable:
+
+```python
+estado = "menu"
+```
+
+indica qué pantalla se está mostrando.
+
+Los estados principales son:
+
+```text
+menu
+juego
+continuara
+derrota
+```
+
+Según el estado se ejecuta una sección diferente:
+
+```python
+if estado == "menu":
+```
+
+muestra el menú.
+
+```python
+elif estado == "juego":
+```
+
+mueve y dibuja al jugador.
+
+```python
+elif estado == "continuara":
+```
+
+muestra la imagen final.
+
+```python
+elif estado == "derrota":
+```
+
+muestra la pantalla de derrota.
+
+Este sistema se llama una **máquina de estados**. Sirve para separar claramente el comportamiento de cada pantalla.
+
+## 13. Llegar al límite derecho
+
+```python
+if jugdatos["rect"].right >= ancho:
+    estado = "continuara"
+```
+
+Cuando el lado derecho del jugador llega al borde derecho de la pantalla, el juego cambia al estado `continuara`.
+
+## 14. Pantalla de derrota
+
+Cuando la vida llega a cero:
+
+```python
+if jugdatos["vida"] <= 0:
+    estado = "derrota"
+```
+
+Se deja de mostrar la barra de vida y se llama a:
+
+```python
+fn.dibujarperdida(...)
+```
+
+Primero se dibuja el mapa y el jugador. Después se coloca una superficie transparente:
+
+```python
+capa = pygame.Surface(pantalla.get_size(), pygame.SRCALPHA)
+capa.fill((180, 0, 0, 77))
+```
+
+El último valor, `77`, representa aproximadamente un 30% de opacidad porque el canal alfa va de `0` a `255`.
+
+Luego se dibujan:
+
+- `PERDISTE,`
+- `ALTO BOT`
+- `VOLVER A JUGAR`
+- `MENU`
+
+## 15. Botones de derrota
+
+Cada botón tiene:
+
+```python
+{
+    "texto": "VOLVER A JUGAR",
+    "rect": ...,
+    "accion": "jugar"
+}
+```
+
+El rectángulo sirve para detectar el click:
+
+```python
+if b["rect"].collidepoint(mouse):
+```
+
+También se comprueba si el mouse está encima para activar el efecto hover:
+
+```python
+activo = boton["rect"].collidepoint(mouse)
+```
+
+Si está encima, se utilizan colores más claros:
+
+```python
+colorf = (95, 95, 95)
+colorb = (130, 130, 130)
+```
+
+## 16. Reiniciar o volver al menú
+
+Si se pulsa `VOLVER A JUGAR`:
+
+```python
+jugdatos = fn.crearjugador(ancho, alto)
+estado = "juego"
+```
+
+Se crea un jugador nuevo, con 5 vidas y posición inicial.
+
+Si se pulsa `MENU`:
+
+```python
+estado = "menu"
+```
+
+El programa vuelve al menú principal.
+
+## 17. Bucle principal
+
+```python
+while jugando:
+```
+
+Este bucle se repite continuamente mientras el juego esté activo.
+
+En cada vuelta:
+
+1. Se obtiene la posición del mouse.
+2. Se revisan eventos.
+3. Se comprueba el estado actual.
+4. Se dibuja la pantalla correspondiente.
+5. Se actualiza la pantalla.
+6. Se limita el juego a 60 FPS.
+
+```python
+pygame.display.flip()
+```
+
+Actualiza visualmente la ventana.
+
+```python
+reloj.tick(60)
+```
+
+Limita la velocidad a 60 frames por segundo.
+
+## 18. Cierre del programa
+
+```python
+video.release()
+pygame.quit()
+sys.exit()
+```
+
+- `video.release()`: libera el video.
+- `pygame.quit()`: cierra correctamente Pygame.
+- `sys.exit()`: finaliza el programa.
+
+## Preguntas que podría hacerte tu profesor
+
+**¿Por qué usaste funciones separadas?**
+
+Para organizar el código, evitar repeticiones y hacer que cada función tenga una responsabilidad concreta.
+
+**¿Qué es `pygame.Rect`?**
+
+Es un rectángulo que almacena posición y tamaño. También permite detectar colisiones fácilmente.
+
+**¿Cómo detectas el daño?**
+
+Comparando el rectángulo del jugador con los rectángulos de los objetivos usando `colliderect()`.
+
+**¿Cómo funciona la vida?**
+
+El jugador comienza con `5`. Cada colisión resta `1`. El sprite mostrado se selecciona con `5 - vida`, porque `vida00` representa la barra llena y `vida05` la vacía.
+
+**¿Qué es una máquina de estados?**
+
+Es una variable que indica qué parte del juego está activa: menú, juego, derrota o pantalla final.
+
+**¿Por qué usas una superficie con `SRCALPHA`?**
+
+Porque permite usar transparencia mediante el canal alfa y crear la capa roja sobre el juego sin borrar completamente lo que está debajo.
+
+**¿Para qué sirve `pygame.display.flip()`?**
+
+Para mostrar en pantalla todo lo que se dibujó durante ese frame.
+
+**¿Qué significa `collidepoint()`?**
+
+Comprueba si un punto, en este caso la posición del mouse, está dentro de un rectángulo.
