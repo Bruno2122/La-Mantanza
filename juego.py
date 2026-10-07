@@ -18,6 +18,9 @@ t1, t2, rect1, rect2 = fn.titulos(fuentetit, anchopanel, alto)
 botones = fn.btnlista(anchopanel, alto)
 
 mapagraf = fn.cargarmapa(ancho, alto)
+andy00, andy01 = fn.cargabazar(ancho, alto)
+puertabazar = pygame.Rect(int(ancho * 0.78), int(alto * 0.15), int(ancho * 0.18), int(alto * 0.35))
+transicion = {"estado": "ninguno", "inicio": 0}
 jugdatos = fn.crearjugador(ancho, alto)
 vidas = fn.cargarvidas(alto)
 bfuentetitulo, bfontederrota, botonesderrota = fn.bderrota(ancho, alto)
@@ -58,8 +61,9 @@ while jugando:
                         if b["accion"] == "jugar":
                             # C
                             jugdatos = fn.crearjugador(ancho, alto)
+                            mapagraf = fn.cargarmapa(ancho, alto)
+                            transicion = {"estado": "ninguno", "inicio": 0}
                             estado = "juego"
-                            # C
                         elif b["accion"] == "salir":
                             jugando = False
             elif estado == "derrota":
@@ -67,34 +71,47 @@ while jugando:
                     if b["rect"].collidepoint(mouse):
                         if b["accion"] == "jugar":
                             jugdatos = fn.crearjugador(ancho, alto)
+                            mapagraf = fn.cargarmapa(ancho, alto)
+                            transicion = {"estado": "ninguno", "inicio": 0}
                             estado = "juego"
                         elif b["accion"] == "menu":
                             estado = "menu"
-
     if estado == "menu":
         fondosurf = fn.framevideo(video, ancho, alto)
         fn.dibujar(pantalla, fondosurf, panelizq, panelder, anchopanel, t1, t2, rect1, rect2, botones, fuentebtn, mouse)
     elif estado == "juego":
-        # C
-        fn.moverjugador(jugdatos, teclas, ancho, alto)
-        fn.recibirdaño(jugdatos, enemigos)
-        if jugdatos["vida"] <= 0:
-            estado = "derrota"
-        elif jugdatos["rect"].right >= ancho:
-            estado = "continuara"
-        else:
+        ahora = pygame.time.get_ticks()
+        if transicion["estado"] == "negro":
+            pantalla.fill((0, 0, 0))
+            if ahora - transicion["inicio"] >= 500:
+                transicion["estado"] = "andy00"
+                transicion["inicio"] = ahora
+                mapagraf = andy00
+        elif transicion["estado"] == "andy00":
+            if ahora - transicion["inicio"] >= 1000:
+                transicion["estado"] = "andy01"
+                mapagraf = andy01
             fn.dibujarjuego(pantalla, mapagraf, jugdatos, vidas, enemigos)
-        # C
+        else:
+            fn.moverjugador(jugdatos, teclas, ancho, alto)
+            fn.recibirdaño(jugdatos, enemigos)
+
+            if transicion["estado"] == "ninguno" and jugdatos["rect"].colliderect(puertabazar):
+                transicion["estado"] = "negro"
+                transicion["inicio"] = ahora
+            else:
+                if jugdatos["vida"] <= 0:
+                    estado = "derrota"
+                elif jugdatos["rect"].right >= ancho:
+                    estado = "continuara"
+                else:
+                    fn.dibujarjuego(pantalla, mapagraf, jugdatos, vidas, enemigos)
     elif estado == "continuara":
-        # C
         fn.dcontinuara(pantalla, icontinuara)
-        # C
     elif estado == "derrota":
         fn.dibujarperdida(pantalla, jugdatos, mapagraf, bfuentetitulo, bfontederrota, botonesderrota, mouse)
-
     pygame.display.flip()
     reloj.tick(60)
-
 video.release()
 pygame.quit()
 sys.exit()

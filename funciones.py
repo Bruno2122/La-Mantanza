@@ -158,6 +158,13 @@ def cargarmapa(ancho, alto):
     img = pygame.image.load(ruta)
     return pygame.transform.scale(img, (ancho, alto)).convert()
 
+def cargabazar(ancho, alto):
+    r0 = "Sprites/Andy/andy00.png" if os.path.exists("Sprites/Andy/andy00.png") else "andy00.png"
+    r1 = "Sprites/Andy/andy01.png" if os.path.exists("Sprites/Andy/andy01.png") else "andy01.png"
+    i0 = pygame.image.load(r0).convert()
+    i1 = pygame.image.load(r1).convert()
+    return pygame.transform.scale(i0, (ancho, alto)), pygame.transform.scale(i1, (ancho, alto))
+
 def cargarsprites(wjug, hjug):
     dic = {
         "abajo": [0, 1, 2],
