@@ -98,11 +98,13 @@ while jugando:
         fn.recibirdaño(jugdatos, enemigos)
         if jugdatos["vida"] <= 0:
             estado = "derrota"
+        elif jugdatos["rect"].right >= ancho:
+            estado = "juego"
         fn.dibujarjuego2(pantalla, mapagraf2, jugdatos, vidas)
 
     pygame.display.flip()
     reloj.tick(60)
-    
+
 video.release()
 pygame.quit()
 sys.exit()
