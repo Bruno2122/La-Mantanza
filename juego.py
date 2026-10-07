@@ -19,7 +19,7 @@ botones = fn.btnlista(anchopanel, alto)
 
 mapagraf = fn.cargarmapa(ancho, alto)
 andy00, andy01 = fn.cargabazar(ancho, alto)
-puertabazar = pygame.Rect(int(ancho * 0.78), int(alto * 0.15), int(ancho * 0.18), int(alto * 0.35))
+puertabazar = pygame.Rect(int(ancho * 0.88), int(alto * 0.20), int(ancho * 0.06), int(alto * 0.05))
 transicion = {"estado": "ninguno", "inicio": 0}
 jugdatos = fn.crearjugador(ancho, alto)
 vidas = fn.cargarvidas(alto)
@@ -31,9 +31,8 @@ bloque_temporal = pygame.Rect(
     int(alto * 0.12)
 )
 enemigos = [bloque_temporal]
-# C
+
 icontinuara = fn.ccontinuara(ancho, alto)
-# C
 
 reloj = pygame.time.Clock()
 estado = "menu"
@@ -47,19 +46,24 @@ while jugando:
         if evento.type == pygame.QUIT:
             jugando = False
         elif evento.type == pygame.KEYDOWN:
-            # C
             if evento.key == pygame.K_ESCAPE:
                 if estado in ("juego", "continuara", "derrota"):
                     estado = "menu"
                 else:
                     jugando = False
-            # C
+            # NUEVO: Tecla ESPACIO para salir del bazar
+            elif evento.key == pygame.K_SPACE:
+                if estado == "juego" and transicion["estado"] in ("andy00", "fade_andy01", "andy01", "negro"):
+                    transicion["estado"] = "ninguno"
+                    mapagraf = fn.cargarmapa(ancho, alto)
+                    # Empujamos al jugador hacia abajo para no volver a chocar al instante con la puerta
+                    jugdatos["rect"].y += int(alto * 0.12)
+                    
         elif evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
             if estado == "menu":
                 for b in botones:
                     if b["rect"].collidepoint(mouse):
                         if b["accion"] == "jugar":
-                            # C
                             jugdatos = fn.crearjugador(ancho, alto)
                             mapagraf = fn.cargarmapa(ancho, alto)
                             transicion = {"estado": "ninguno", "inicio": 0}
@@ -76,22 +80,38 @@ while jugando:
                             estado = "juego"
                         elif b["accion"] == "menu":
                             estado = "menu"
+
     if estado == "menu":
         fondosurf = fn.framevideo(video, ancho, alto)
         fn.dibujar(pantalla, fondosurf, panelizq, panelder, anchopanel, t1, t2, rect1, rect2, botones, fuentebtn, mouse)
     elif estado == "juego":
         ahora = pygame.time.get_ticks()
+
         if transicion["estado"] == "negro":
             pantalla.fill((0, 0, 0))
-            if ahora - transicion["inicio"] >= 500:
+            if ahora - transicion["inicio"] >= 1000:
                 transicion["estado"] = "andy00"
                 transicion["inicio"] = ahora
                 mapagraf = andy00
         elif transicion["estado"] == "andy00":
-            if ahora - transicion["inicio"] >= 1000:
+            if ahora - transicion["inicio"] >= 4500:
+                transicion["estado"] = "fade_andy01"
+                transicion["inicio"] = ahora
+            pantalla.blit(mapagraf, (0, 0))
+        elif transicion["estado"] == "fade_andy01":
+            progreso = min(1.0, (ahora - transicion["inicio"]) / 1000.0)
+            alpha = int(progreso * 255)
+            
+            pantalla.blit(andy00, (0, 0))
+            andy01.set_alpha(alpha)
+            pantalla.blit(andy01, (0, 0))
+            
+            if progreso >= 1.0:
                 transicion["estado"] = "andy01"
                 mapagraf = andy01
-            fn.dibujarjuego(pantalla, mapagraf, jugdatos, vidas, enemigos)
+        elif transicion["estado"] == "andy01":
+            andy01.set_alpha(255)
+            pantalla.blit(mapagraf, (0, 0))
         else:
             fn.moverjugador(jugdatos, teclas, ancho, alto)
             fn.recibirdaño(jugdatos, enemigos)
@@ -110,8 +130,10 @@ while jugando:
         fn.dcontinuara(pantalla, icontinuara)
     elif estado == "derrota":
         fn.dibujarperdida(pantalla, jugdatos, mapagraf, bfuentetitulo, bfontederrota, botonesderrota, mouse)
+
     pygame.display.flip()
     reloj.tick(60)
+
 video.release()
 pygame.quit()
 sys.exit()
