@@ -158,6 +158,11 @@ def cargarmapa(ancho, alto):
     img = pygame.image.load(ruta)
     return pygame.transform.scale(img, (ancho, alto)).convert()
 
+def cargarmapa2(ancho, alto):
+    ruta = "F/mapa2.png" if os.path.exists("F/mapa2.png") else "mapa2.png"
+    img = pygame.image.load(ruta)
+    return pygame.transform.scale(img, (ancho, alto)).convert()
+
 def cargarsprites(wjug, hjug):
     dic = {
         "abajo": [0, 1, 2],
@@ -177,7 +182,7 @@ def cargarsprites(wjug, hjug):
 def crearjugador(ancho, alto):
     hjug = int(alto * 0.15)
     wjug = int(hjug * (52 / 96))
-    xjug = ancho // 2
+    xjug = 0
     yjug = int(alto * 0.50)
     rectjug = pygame.Rect(xjug, yjug, wjug, hjug)
     vel = int(alto * 0.009)
@@ -238,6 +243,15 @@ def dibujarjuego(pantalla, mapagraf, jugdatos, vidas, objetivos, mostrarvida=Tru
     pantalla.blit(mapagraf, (0, 0))
     for objetivo in objetivos:
         pygame.draw.rect(pantalla, (120, 55, 35), objetivo, border_radius=6)
+    d = jugdatos["dir"]
+    secuencia = [0, 1, 2, 1]
+    idx = secuencia[int(jugdatos["frame"]) % 4]
+    spr = jugdatos["sprs"][d][idx]
+    pantalla.blit(spr, jugdatos["rect"].topleft)
+    if mostrarvida:
+        dibujarvida(pantalla, vidas, jugdatos)
+def dibujarjuego2(pantalla, mapagraf, jugdatos, vidas, mostrarvida=True):
+    pantalla.blit(mapagraf, (0, 0))
     d = jugdatos["dir"]
     secuencia = [0, 1, 2, 1]
     idx = secuencia[int(jugdatos["frame"]) % 4]

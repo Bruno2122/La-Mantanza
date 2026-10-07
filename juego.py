@@ -18,6 +18,7 @@ t1, t2, rect1, rect2 = fn.titulos(fuentetit, anchopanel, alto)
 botones = fn.btnlista(anchopanel, alto)
 
 mapagraf = fn.cargarmapa(ancho, alto)
+mapagraf2 = fn.cargarmapa2(ancho, alto)
 jugdatos = fn.crearjugador(ancho, alto)
 vidas = fn.cargarvidas(alto)
 bfuentetitulo, bfontederrota, botonesderrota = fn.bderrota(ancho, alto)
@@ -58,6 +59,7 @@ while jugando:
                         if b["accion"] == "jugar":
                             # C
                             jugdatos = fn.crearjugador(ancho, alto)
+                            
                             estado = "juego"
                             # C
                         elif b["accion"] == "salir":
@@ -81,9 +83,9 @@ while jugando:
         if jugdatos["vida"] <= 0:
             estado = "derrota"
         elif jugdatos["rect"].right >= ancho:
-            estado = "continuara"
+             estado = "pelea"
         else:
-            fn.dibujarjuego(pantalla, mapagraf, jugdatos, vidas, enemigos)
+            fn.dibujarjuego(pantalla, mapagraf, jugdatos, vidas,enemigos)
         # C
     elif estado == "continuara":
         # C
@@ -91,10 +93,16 @@ while jugando:
         # C
     elif estado == "derrota":
         fn.dibujarperdida(pantalla, jugdatos, mapagraf, bfuentetitulo, bfontederrota, botonesderrota, mouse)
+    elif estado == "pelea":
+        fn.moverjugador(jugdatos, teclas, ancho, alto)
+        fn.recibirdaño(jugdatos, enemigos)
+        if jugdatos["vida"] <= 0:
+            estado = "derrota"
+        fn.dibujarjuego2(pantalla, mapagraf2, jugdatos, vidas)
 
     pygame.display.flip()
     reloj.tick(60)
-
+    
 video.release()
 pygame.quit()
 sys.exit()
