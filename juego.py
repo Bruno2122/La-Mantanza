@@ -51,14 +51,16 @@ while jugando:
                     estado = "menu"
                 else:
                     jugando = False
-            # NUEVO: Tecla ESPACIO para salir del bazar
             elif evento.key == pygame.K_SPACE:
                 if estado == "juego" and transicion["estado"] in ("andy00", "fade_andy01", "andy01", "negro"):
                     transicion["estado"] = "ninguno"
                     mapagraf = fn.cargarmapa(ancho, alto)
-                    # Empujamos al jugador hacia abajo para no volver a chocar al instante con la puerta
                     jugdatos["rect"].y += int(alto * 0.12)
-                    
+            elif evento.key == pygame.K_f:
+                if estado == "juego" and transicion["estado"] == "ninguno" and not jugdatos["atacando"]:
+                    jugdatos["atacando"] = True
+                    jugdatos["frame_ataque"] = 0.0
+
         elif evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
             if estado == "menu":
                 for b in botones:
@@ -80,6 +82,9 @@ while jugando:
                             estado = "juego"
                         elif b["accion"] == "menu":
                             estado = "menu"
+            elif estado == "juego" and transicion["estado"] == "ninguno" and not jugdatos["atacando"]:
+                jugdatos["atacando"] = True
+                jugdatos["frame_ataque"] = 0.0
 
     if estado == "menu":
         fondosurf = fn.framevideo(video, ancho, alto)
@@ -101,11 +106,9 @@ while jugando:
         elif transicion["estado"] == "fade_andy01":
             progreso = min(1.0, (ahora - transicion["inicio"]) / 1000.0)
             alpha = int(progreso * 255)
-            
             pantalla.blit(andy00, (0, 0))
             andy01.set_alpha(alpha)
             pantalla.blit(andy01, (0, 0))
-            
             if progreso >= 1.0:
                 transicion["estado"] = "andy01"
                 mapagraf = andy01
