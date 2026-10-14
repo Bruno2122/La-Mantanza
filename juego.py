@@ -18,7 +18,9 @@ t1, t2, rect1, rect2 = fn.titulos(fuentetit, anchopanel, alto)
 botones = fn.btnlista(anchopanel, alto)
 
 mapagraf = fn.cargarmapa(ancho, alto)
-mapagraf2 = fn.cargarmapa2(ancho, alto)
+andy00, andy01 = fn.cargabazar(ancho, alto)
+puertabazar = pygame.Rect(int(ancho * 0.88), int(alto * 0.20), int(ancho * 0.06), int(alto * 0.05))
+transicion = {"estado": "ninguno", "inicio": 0}
 jugdatos = fn.crearjugador(ancho, alto)
 vidas = fn.cargarvidas(alto)
 bfuentetitulo, bfontederrota, botonesderrota = fn.bderrota(ancho, alto)
@@ -29,9 +31,8 @@ bloque_temporal = pygame.Rect(
     int(alto * 0.12)
 )
 enemigos = [bloque_temporal]
-# C
+
 icontinuara = fn.ccontinuara(ancho, alto)
-# C
 
 reloj = pygame.time.Clock()
 estado = "menu"
@@ -46,23 +47,30 @@ while jugando:
         if evento.type == pygame.QUIT:
             jugando = False
         elif evento.type == pygame.KEYDOWN:
-            # C
             if evento.key == pygame.K_ESCAPE:
                 if estado in ("juego", "continuara", "derrota"):
                     estado = "menu"
                 else:
                     jugando = False
-            # C
+            elif evento.key == pygame.K_SPACE:
+                if estado == "juego" and transicion["estado"] in ("andy00", "fade_andy01", "andy01", "negro"):
+                    transicion["estado"] = "ninguno"
+                    mapagraf = fn.cargarmapa(ancho, alto)
+                    jugdatos["rect"].y += int(alto * 0.12)
+            elif evento.key == pygame.K_f:
+                if estado == "juego" and transicion["estado"] == "ninguno" and not jugdatos["atacando"]:
+                    jugdatos["atacando"] = True
+                    jugdatos["frame_ataque"] = 0.0
+
         elif evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
             if estado == "menu":
                 for b in botones:
                     if b["rect"].collidepoint(mouse):
                         if b["accion"] == "jugar":
-                            # C
                             jugdatos = fn.crearjugador(ancho, alto)
-                            tramo = 1
+                            mapagraf = fn.cargarmapa(ancho, alto)
+                            transicion = {"estado": "ninguno", "inicio": 0}
                             estado = "juego"
-                            # C
                         elif b["accion"] == "salir":
                             jugando = False
             elif estado == "derrota":
@@ -70,37 +78,60 @@ while jugando:
                     if b["rect"].collidepoint(mouse):
                         if b["accion"] == "jugar":
                             jugdatos = fn.crearjugador(ancho, alto)
-                            tramo = 1
+                            mapagraf = fn.cargarmapa(ancho, alto)
+                            transicion = {"estado": "ninguno", "inicio": 0}
                             estado = "juego"
                         elif b["accion"] == "menu":
                             estado = "menu"
+            elif estado == "juego" and transicion["estado"] == "ninguno" and not jugdatos["atacando"]:
+                jugdatos["atacando"] = True
+                jugdatos["frame_ataque"] = 0.0
 
     if estado == "menu":
         fondosurf = fn.framevideo(video, ancho, alto)
         fn.dibujar(pantalla, fondosurf, panelizq, panelder, anchopanel, t1, t2, rect1, rect2, botones, fuentebtn, mouse)
     elif estado == "juego":
-        # C
-        fn.moverjugador(jugdatos, teclas, ancho, alto)
-        fn.recibirdaño(jugdatos, enemigos)
-        if jugdatos["vida"] <= 0:
-            estado = "derrota"
-        else:
-            if tramo == 1 and jugdatos["rect"].right >= ancho:
-                tramo = 2
-                jugdatos["rect"].left = 0
-            elif tramo == 2 and jugdatos["rect"].left <= 0 and (teclas[pygame.K_a] or teclas[pygame.K_LEFT]):
-                tramo = 1
-                jugdatos["rect"].right = ancho
+        ahora = pygame.time.get_ticks()
 
-            if tramo == 1:
-                fn.dibujarjuego(pantalla, mapagraf, jugdatos, vidas, enemigos)
+        if transicion["estado"] == "negro":
+            pantalla.fill((0, 0, 0))
+            if ahora - transicion["inicio"] >= 1000:
+                transicion["estado"] = "andy00"
+                transicion["inicio"] = ahora
+                mapagraf = andy00
+        elif transicion["estado"] == "andy00":
+            if ahora - transicion["inicio"] >= 4500:
+                transicion["estado"] = "fade_andy01"
+                transicion["inicio"] = ahora
+            pantalla.blit(mapagraf, (0, 0))
+        elif transicion["estado"] == "fade_andy01":
+            progreso = min(1.0, (ahora - transicion["inicio"]) / 1000.0)
+            alpha = int(progreso * 255)
+            pantalla.blit(andy00, (0, 0))
+            andy01.set_alpha(alpha)
+            pantalla.blit(andy01, (0, 0))
+            if progreso >= 1.0:
+                transicion["estado"] = "andy01"
+                mapagraf = andy01
+        elif transicion["estado"] == "andy01":
+            andy01.set_alpha(255)
+            pantalla.blit(mapagraf, (0, 0))
+        else:
+            fn.moverjugador(jugdatos, teclas, ancho, alto)
+            fn.recibirdaño(jugdatos, enemigos)
+
+            if transicion["estado"] == "ninguno" and jugdatos["rect"].colliderect(puertabazar):
+                transicion["estado"] = "negro"
+                transicion["inicio"] = ahora
             else:
-                fn.dibujarjuego2(pantalla, mapagraf2, jugdatos, vidas)
-        # C
+                if jugdatos["vida"] <= 0:
+                    estado = "derrota"
+                elif jugdatos["rect"].right >= ancho:
+                    estado = "continuara"
+                else:
+                    fn.dibujarjuego(pantalla, mapagraf, jugdatos, vidas, enemigos)
     elif estado == "continuara":
-        # C
         fn.dcontinuara(pantalla, icontinuara)
-        # C
     elif estado == "derrota":
         mapactual = mapagraf if tramo == 1 else mapagraf2
         fn.dibujarperdida(pantalla, jugdatos, mapactual, bfuentetitulo, bfontederrota, botonesderrota, mouse)

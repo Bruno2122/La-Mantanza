@@ -32,7 +32,6 @@ def recibirdaño(jugdatos, objetivos):
     ahora = pygame.time.get_ticks()
     if ahora - jugdatos["ultimo_daño"] < 1000:
         return
-
     for objetivo in objetivos:
         if jugdatos["rect"].colliderect(objetivo):
             jugdatos["vida"] = max(0, jugdatos["vida"] - 1)
@@ -54,16 +53,13 @@ def bderrota(ancho, alto):
 
 def dibujarperdida(pantalla, jugdatos, mapagraf, fuentetitulo, fuente, botones, mouse):
     dibujarjuego(pantalla, mapagraf, jugdatos, [], [], False)
-
     capa = pygame.Surface(pantalla.get_size(), pygame.SRCALPHA)
     capa.fill((180, 0, 0, 77))
     pantalla.blit(capa, (0, 0))
-
     titulo = grosor(fuentetitulo, "PERDISTE,", (255, 255, 255), 2)
     subtitulo = grosor(fuentetitulo, "ALTO BOT", (255, 255, 255), 2)
     pantalla.blit(titulo, titulo.get_rect(center=(pantalla.get_width() // 2, int(pantalla.get_height() * 0.20))))
     pantalla.blit(subtitulo, subtitulo.get_rect(center=(pantalla.get_width() // 2, int(pantalla.get_height() * 0.32))))
-
     for boton in botones:
         activo = boton["rect"].collidepoint(mouse)
         colorf = (95, 95, 95) if activo else (75, 75, 75)
@@ -77,11 +73,9 @@ def capas(ancho, alto, anchopanel):
     panelizq = pygame.Surface((anchopanel, alto))
     panelizq.fill((0, 0, 0))
     panelizq.set_alpha(170)
-
     panelder = pygame.Surface((ancho - anchopanel, alto))
     panelder.fill((0, 0, 0))
     panelder.set_alpha(128)
-
     return panelizq, panelder
 
 def fuentes(alto):
@@ -112,7 +106,6 @@ def btnlista(anchopanel, alto):
     posx = (anchopanel - anchobtn) // 2
     posy = int(alto * 0.36)
     espacio = int(alto * 0.12)
-
     return [
         {"texto": "JUGAR", "rect": pygame.Rect(posx, posy, anchobtn, altobtn), "accion": "jugar"},
         {"texto": "AJUSTES", "rect": pygame.Rect(posx, posy + espacio, anchobtn, altobtn), "accion": "ajustes"},
@@ -124,7 +117,6 @@ def framevideo(video, ancho, alto):
     if not exito:
         video.set(cv2.CAP_PROP_POS_FRAMES, 0)
         exito, frame = video.read()
-
     if exito:
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         frame = cv2.resize(frame, (ancho, alto))
@@ -134,21 +126,16 @@ def framevideo(video, ancho, alto):
 def dibujar(pantalla, fondosurf, panelizq, panelder, anchopanel, t1, t2, rect1, rect2, botones, fuentebtn, mouse):
     if fondosurf:
         pantalla.blit(fondosurf, (0, 0))
-
     pantalla.blit(panelizq, (0, 0))
     pantalla.blit(panelder, (anchopanel, 0))
-
     pantalla.blit(t1, rect1)
     pantalla.blit(t2, rect2)
-
     for b in botones:
         activo = b["rect"].collidepoint(mouse)
         colorf = (95, 95, 95) if activo else (75, 75, 75)
         colorb = (130, 130, 130) if activo else (45, 45, 45)
-
         pygame.draw.rect(pantalla, colorf, b["rect"], border_radius=6)
         pygame.draw.rect(pantalla, colorb, b["rect"], width=3, border_radius=6)
-
         txtsurf = fuentebtn.render(b["texto"], True, (255, 255, 255))
         txtrect = txtsurf.get_rect(center=b["rect"].center)
         pantalla.blit(txtsurf, txtrect)
@@ -158,10 +145,12 @@ def cargarmapa(ancho, alto):
     img = pygame.image.load(ruta)
     return pygame.transform.scale(img, (ancho, alto)).convert()
 
-def cargarmapa2(ancho, alto):
-    ruta = "F/mapa2.png" if os.path.exists("F/mapa2.png") else "mapa2.png"
-    img = pygame.image.load(ruta)
-    return pygame.transform.scale(img, (ancho, alto)).convert()
+def cargabazar(ancho, alto):
+    r0 = "Sprites/Andy/andy00.png" if os.path.exists("Sprites/Andy/andy00.png") else "andy00.png"
+    r1 = "Sprites/Andy/andy01.png" if os.path.exists("Sprites/Andy/andy01.png") else "andy01.png"
+    i0 = pygame.image.load(r0).convert()
+    i1 = pygame.image.load(r1).convert()
+    return pygame.transform.scale(i0, (ancho, alto)), pygame.transform.scale(i1, (ancho, alto))
 
 def cargarsprites(wjug, hjug):
     dic = {
@@ -170,14 +159,35 @@ def cargarsprites(wjug, hjug):
         "derecha": [12, 13, 14],
         "izquierda": [8, 9, 10]
     }
+    dic_ataque = {
+        "abajo": [0, 1, 2, 3],
+        "arriba": [4, 5, 6, 7],
+        "izquierda": [8, 9, 10, 11],
+        "derecha": [12, 13, 14, 15]
+    }
     sprs = {}
+    sprs_ataque = {}
+
     for d, numsf in dic.items():
         sprs[d] = []
         for n in numsf:
             img = pygame.image.load(f"sprites/Mc/MC{n:03d}.png").convert_alpha()
             img = pygame.transform.scale(img, (wjug, hjug))
             sprs[d].append(img)
-    return sprs
+
+    # MC: personaje ocupa 80px dentro de canvas de 96px → en pantalla mide hjug*(80/96)
+    # AMC: personaje llena todo el canvas → para que mida igual, escalamos a hjug*(80/96)
+    hjug_ataque = int(hjug * 80 / 96)
+    for d, numsf in dic_ataque.items():
+        sprs_ataque[d] = []
+        for n in numsf:
+            img = pygame.image.load(f"Sprites/Mc/Combate/AMC{n:03d}.png").convert_alpha()
+            proporcion_ataque = img.get_width() / img.get_height()
+            wjug_ataque = int(hjug_ataque * proporcion_ataque)
+            img = pygame.transform.scale(img, (wjug_ataque, hjug_ataque))
+            sprs_ataque[d].append(img)
+
+    return sprs, sprs_ataque
 
 def crearjugador(ancho, alto):
     hjug = int(alto * 0.15)
@@ -186,20 +196,30 @@ def crearjugador(ancho, alto):
     yjug = int(alto * 0.50)
     rectjug = pygame.Rect(xjug, yjug, wjug, hjug)
     vel = int(alto * 0.009)
-    sprs = cargarsprites(wjug, hjug)
+    sprs, sprs_ataque = cargarsprites(wjug, hjug)
 
     jugdatos = {
         "rect": rectjug,
         "vel": vel,
         "sprs": sprs,
+        "sprs_ataque": sprs_ataque,
         "dir": "abajo",
         "frame": 1.0,
         "vida": 5,
-        "ultimo_daño": -1000
+        "ultimo_daño": -1000,
+        "atacando": False,
+        "frame_ataque": 0.0
     }
     return jugdatos
 
 def moverjugador(jugdatos, teclas, ancho, alto):
+    if jugdatos["atacando"]:
+        jugdatos["frame_ataque"] += 0.25
+        if jugdatos["frame_ataque"] >= 4:
+            jugdatos["atacando"] = False
+            jugdatos["frame_ataque"] = 0.0
+        return
+
     rect = jugdatos["rect"]
     vel = jugdatos["vel"]
     mov = False
@@ -243,19 +263,20 @@ def dibujarjuego(pantalla, mapagraf, jugdatos, vidas, objetivos, mostrarvida=Tru
     pantalla.blit(mapagraf, (0, 0))
     for objetivo in objetivos:
         pygame.draw.rect(pantalla, (120, 55, 35), objetivo, border_radius=6)
+
     d = jugdatos["dir"]
-    secuencia = [0, 1, 2, 1]
-    idx = secuencia[int(jugdatos["frame"]) % 4]
-    spr = jugdatos["sprs"][d][idx]
-    pantalla.blit(spr, jugdatos["rect"].topleft)
-    if mostrarvida:
-        dibujarvida(pantalla, vidas, jugdatos)
-def dibujarjuego2(pantalla, mapagraf, jugdatos, vidas, mostrarvida=True):
-    pantalla.blit(mapagraf, (0, 0))
-    d = jugdatos["dir"]
-    secuencia = [0, 1, 2, 1]
-    idx = secuencia[int(jugdatos["frame"]) % 4]
-    spr = jugdatos["sprs"][d][idx]
-    pantalla.blit(spr, jugdatos["rect"].topleft)
+    if jugdatos["atacando"]:
+        idx = int(jugdatos["frame_ataque"]) % 4
+        spr = jugdatos["sprs_ataque"][d][idx]
+        # Alinear al fondo del rect para que los pies queden en el mismo lugar
+        pos_x = jugdatos["rect"].centerx - spr.get_width() // 2
+        pos_y = jugdatos["rect"].bottom - spr.get_height()
+        pantalla.blit(spr, (pos_x, pos_y))
+    else:
+        secuencia = [0, 1, 2, 1]
+        idx = secuencia[int(jugdatos["frame"]) % 4]
+        spr = jugdatos["sprs"][d][idx]
+        pantalla.blit(spr, jugdatos["rect"].topleft)
+
     if mostrarvida:
         dibujarvida(pantalla, vidas, jugdatos)
