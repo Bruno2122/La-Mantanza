@@ -35,6 +35,7 @@ icontinuara = fn.ccontinuara(ancho, alto)
 
 reloj = pygame.time.Clock()
 estado = "menu"
+tramo = 1
 jugando = True
 
 while jugando:
@@ -59,7 +60,7 @@ while jugando:
                         if b["accion"] == "jugar":
                             # C
                             jugdatos = fn.crearjugador(ancho, alto)
-                            
+                            tramo = 1
                             estado = "juego"
                             # C
                         elif b["accion"] == "salir":
@@ -69,6 +70,7 @@ while jugando:
                     if b["rect"].collidepoint(mouse):
                         if b["accion"] == "jugar":
                             jugdatos = fn.crearjugador(ancho, alto)
+                            tramo = 1
                             estado = "juego"
                         elif b["accion"] == "menu":
                             estado = "menu"
@@ -82,25 +84,26 @@ while jugando:
         fn.recibirdaño(jugdatos, enemigos)
         if jugdatos["vida"] <= 0:
             estado = "derrota"
-        elif jugdatos["rect"].right >= ancho:
-             estado = "pelea"
         else:
-            fn.dibujarjuego(pantalla, mapagraf, jugdatos, vidas,enemigos)
+            if tramo == 1 and jugdatos["rect"].right >= ancho:
+                tramo = 2
+                jugdatos["rect"].left = 0
+            elif tramo == 2 and jugdatos["rect"].left <= 0 and (teclas[pygame.K_a] or teclas[pygame.K_LEFT]):
+                tramo = 1
+                jugdatos["rect"].right = ancho
+
+            if tramo == 1:
+                fn.dibujarjuego(pantalla, mapagraf, jugdatos, vidas, enemigos)
+            else:
+                fn.dibujarjuego2(pantalla, mapagraf2, jugdatos, vidas)
         # C
     elif estado == "continuara":
         # C
         fn.dcontinuara(pantalla, icontinuara)
         # C
     elif estado == "derrota":
-        fn.dibujarperdida(pantalla, jugdatos, mapagraf, bfuentetitulo, bfontederrota, botonesderrota, mouse)
-    elif estado == "pelea":
-        fn.moverjugador(jugdatos, teclas, ancho, alto)
-        fn.recibirdaño(jugdatos, enemigos)
-        if jugdatos["vida"] <= 0:
-            estado = "derrota"
-        elif jugdatos["rect"].right >= ancho:
-            estado = "juego"
-        fn.dibujarjuego2(pantalla, mapagraf2, jugdatos, vidas)
+        mapactual = mapagraf if tramo == 1 else mapagraf2
+        fn.dibujarperdida(pantalla, jugdatos, mapactual, bfuentetitulo, bfontederrota, botonesderrota, mouse)
 
     pygame.display.flip()
     reloj.tick(60)
