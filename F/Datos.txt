@@ -1,0 +1,5 @@
+vida=4
+puntos=0
+oleada=1
+posicion_mc=711,540
+mapa=2

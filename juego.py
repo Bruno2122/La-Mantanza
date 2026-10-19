@@ -23,16 +23,14 @@ botones = fn.btnlista(anchopanel, alto)
 
 mapagraf = fn.cargarmapa(ancho, alto)
 mapagraf2 = fn.cargarmapa2(ancho, alto)
+vida, puntos, oleada, posicion_mc, mapa = fn.cargardat(ancho, alto)
 jugdatos = fn.crearjugador(ancho, alto)
+jugdatos["vida"] = vida
+fn.ajustapos(jugdatos, posicion_mc, ancho, alto, mapa)
 vidas = fn.cargarvidas(alto)
 bfuentetitulo, bfontederrota, botonesderrota = fn.bderrota(ancho, alto)
-bloque_temporal = pygame.Rect(
-    int(ancho * 0.78),
-    int(alto * 0.55),
-    int(ancho * 0.08),
-    int(alto * 0.12)
-)
-enemigos = [bloque_temporal]
+enemigos = fn.crearene(ancho, alto) if mapa == 2 else []
+proys = []
 reloj = pygame.time.Clock()
 estado = "menu"
 jugando = True
@@ -43,6 +41,9 @@ while jugando:
 
     for evento in pygame.event.get():
         if evento.type == pygame.QUIT:
+            vida = jugdatos["vida"]
+            posicion_mc = jugdatos["rect"].topleft
+            fn.guardardat(vida, puntos, oleada, posicion_mc, mapa)
             jugando = False
         elif evento.type == pygame.KEYDOWN:
             if evento.key == pygame.K_ESCAPE:
@@ -50,6 +51,9 @@ while jugando:
                     estado = "menu"
                 else:
                     jugando = False
+                vida = jugdatos["vida"]
+                posicion_mc = jugdatos["rect"].topleft
+                fn.guardardat(vida, puntos, oleada, posicion_mc, mapa)
 
         elif evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
             mouseventana = evento.pos
@@ -61,7 +65,23 @@ while jugando:
                 for b in botones:
                     if b["rect"].collidepoint(mouse):
                         if b["accion"] == "jugar":
+                            vida, puntos, oleada, posicion_mc, mapa = fn.cargardat(ancho, alto)
                             jugdatos = fn.crearjugador(ancho, alto)
+                            jugdatos["vida"] = vida
+                            fn.ajustapos(jugdatos, posicion_mc, ancho, alto, mapa)
+                            estado = "juego" if mapa == 1 else "continuara"
+                            enemigos = fn.crearene(ancho, alto) if mapa == 2 else []
+                            proys = []
+                        elif b["accion"] == "reiniciar":
+                            vida = 5
+                            puntos = 0
+                            oleada = 1
+                            mapa = 1
+                            jugdatos = fn.crearjugador(ancho, alto)
+                            posicion_mc = jugdatos["rect"].topleft
+                            enemigos = []
+                            proys = []
+                            fn.guardardat(vida, puntos, oleada, posicion_mc, mapa)
                             estado = "juego"
                         elif b["accion"] == "ventana":
                             ventana = fn.modopant(ancho, alto, ventana)
@@ -72,12 +92,20 @@ while jugando:
                         elif b["accion"] == "salir":
                             jugando = False
             elif estado in ("juego", "continuara"):
-                fn.iniciarataq(jugdatos)
+                if fn.iniciarataq(jugdatos):
+                    proys.append(fn.crearproy(jugdatos))
             elif estado == "derrota":
                 for b in botonesderrota:
                     if b["rect"].collidepoint(mouse):
                         if b["accion"] == "jugar":
                             jugdatos = fn.crearjugador(ancho, alto)
+                            vida = jugdatos["vida"]
+                            puntos = 0
+                            oleada = 1
+                            mapa = 1
+                            enemigos = []
+                            proys = []
+                            posicion_mc = jugdatos["rect"].topleft
                             estado = "juego"
                         elif b["accion"] == "menu":
                             estado = "menu"
@@ -88,21 +116,35 @@ while jugando:
     elif estado == "juego":
         fn.actualizarataq(jugdatos)
         fn.moverjugador(jugdatos, teclas, ancho, alto)
-        fn.recibirdaño(jugdatos, enemigos)
+        fn.moverproy(proys, [], ancho, alto)
+        fn.recibirdaño(jugdatos, [])
         if jugdatos["vida"] <= 0:
             estado = "derrota"
+            fn.dibujarperdida(pantalla, jugdatos, mapagraf, bfuentetitulo, bfontederrota, botonesderrota, mouse)
         elif jugdatos["rect"].right >= ancho:
             estado = "continuara"
+            mapa = 2
+            enemigos = fn.crearene(ancho, alto)
+            proys = []
             jugdatos["rect"].left = 0
         else:
-            fn.dibujarjuego(pantalla, mapagraf, jugdatos, vidas, enemigos)
+            fn.dibujarjuego(pantalla, mapagraf, jugdatos, vidas, [])
     elif estado == "continuara":
         fn.actualizarataq(jugdatos)
         fn.moverjugador(jugdatos, teclas, ancho, alto, (0.29, 0.72))
-        fn.dibujarjuego(pantalla, mapagraf2, jugdatos, vidas, [])
+        fn.actualizaene(enemigos, jugdatos, proys)
+        fn.moverproy(proys, enemigos, ancho, alto, jugdatos)
+        if jugdatos["vida"] <= 0:
+            estado = "derrota"
+            fn.dibujarperdida(pantalla, jugdatos, mapagraf2, bfuentetitulo, bfontederrota, botonesderrota, mouse)
+        else:
+            fn.dibujarjuego(pantalla, mapagraf2, jugdatos, vidas, enemigos)
     elif estado == "derrota":
-        fn.dibujarperdida(pantalla, jugdatos, mapagraf, bfuentetitulo, bfontederrota, botonesderrota, mouse)
+        mapaderrota = mapagraf if mapa == 1 else mapagraf2
+        fn.dibujarperdida(pantalla, jugdatos, mapaderrota, bfuentetitulo, bfontederrota, botonesderrota, mouse)
 
+    vida = jugdatos["vida"]
+    posicion_mc = jugdatos["rect"].topleft
     ventana.blit(pygame.transform.smoothscale(pantalla, ventana.get_size()), (0, 0))
     pygame.display.flip()
     reloj.tick(60)
