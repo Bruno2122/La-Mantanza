@@ -2,15 +2,9 @@ import pygame
 import cv2
 import os
 
-# C
-def ccontinuara(ancho, alto):
-    ruta = "F/Continuara....png" if os.path.exists("F/Continuara....png") else "Continuara....png"
-    img = pygame.image.load(ruta).convert()
-    return pygame.transform.scale(img, (ancho, alto))
-
-def dcontinuara(pantalla, imagen):
-    pantalla.blit(imagen, (0, 0))
-# C
+def cargarmapa2(ancho, alto):
+    img = pygame.image.load("Sprites/mapa2.png")
+    return pygame.transform.scale(img, (ancho, alto)).convert()
 
 def cargarvidas(alto):
     vidas = []
@@ -154,7 +148,7 @@ def dibujar(pantalla, fondosurf, panelizq, panelder, anchopanel, t1, t2, rect1, 
         pantalla.blit(txtsurf, txtrect)
 
 def cargarmapa(ancho, alto):
-    ruta = "F/mapa.jpg" if os.path.exists("F/mapa.jpg") else "mapa.jpg"
+    ruta = "F/Mapa.png" if os.path.exists("F/Mapa.png") else "Mapa.png"
     img = pygame.image.load(ruta)
     return pygame.transform.scale(img, (ancho, alto)).convert()
 
@@ -175,7 +169,7 @@ def cargarsprites(wjug, hjug):
     return sprs
 
 def crearjugador(ancho, alto):
-    hjug = int(alto * 0.15)
+    hjug = int(alto * 0.125)
     wjug = int(hjug * (52 / 96))
     xjug = ancho // 2
     yjug = int(alto * 0.50)
@@ -194,7 +188,7 @@ def crearjugador(ancho, alto):
     }
     return jugdatos
 
-def moverjugador(jugdatos, teclas, ancho, alto):
+def moverjugador(jugdatos, teclas, ancho, alto, limites=(0.40, 0.73)):
     rect = jugdatos["rect"]
     vel = jugdatos["vel"]
     mov = False
@@ -217,8 +211,8 @@ def moverjugador(jugdatos, teclas, ancho, alto):
         jugdatos["dir"] = "derecha"
         mov = True
 
-    limitesuperior = int(alto * 0.40)
-    limiteinferior = int(alto * 0.73)
+    limitesuperior = int(alto * limites[0])
+    limiteinferior = int(alto * limites[1])
 
     if rect.bottom < limitesuperior:
         rect.bottom = limitesuperior

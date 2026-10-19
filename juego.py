@@ -18,6 +18,7 @@ t1, t2, rect1, rect2 = fn.titulos(fuentetit, anchopanel, alto)
 botones = fn.btnlista(anchopanel, alto)
 
 mapagraf = fn.cargarmapa(ancho, alto)
+mapagraf2 = fn.cargarmapa2(ancho, alto)
 jugdatos = fn.crearjugador(ancho, alto)
 vidas = fn.cargarvidas(alto)
 bfuentetitulo, bfontederrota, botonesderrota = fn.bderrota(ancho, alto)
@@ -28,10 +29,6 @@ bloque_temporal = pygame.Rect(
     int(alto * 0.12)
 )
 enemigos = [bloque_temporal]
-# C
-icontinuara = fn.ccontinuara(ancho, alto)
-# C
-
 reloj = pygame.time.Clock()
 estado = "menu"
 jugando = True
@@ -82,13 +79,13 @@ while jugando:
             estado = "derrota"
         elif jugdatos["rect"].right >= ancho:
             estado = "continuara"
+            jugdatos["rect"].left = 0
         else:
             fn.dibujarjuego(pantalla, mapagraf, jugdatos, vidas, enemigos)
         # C
     elif estado == "continuara":
-        # C
-        fn.dcontinuara(pantalla, icontinuara)
-        # C
+        fn.moverjugador(jugdatos, teclas, ancho, alto, (0.25, 0.75))
+        fn.dibujarjuego(pantalla, mapagraf2, jugdatos, vidas, [])
     elif estado == "derrota":
         fn.dibujarperdida(pantalla, jugdatos, mapagraf, bfuentetitulo, bfontederrota, botonesderrota, mouse)
 
