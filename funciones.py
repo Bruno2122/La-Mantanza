@@ -175,8 +175,8 @@ def cargarsprites(wjug, hjug):
     return sprs
 
 def crearjugador(ancho, alto):
-    hjug = int(alto * 0.18)
-    wjug = int(hjug * (68 / 96))
+    hjug = int(alto * 0.15)
+    wjug = int(hjug * (52 / 96))
     xjug = ancho // 2
     yjug = int(alto * 0.50)
     rectjug = pygame.Rect(xjug, yjug, wjug, hjug)
