@@ -1,5 +1,5 @@
-vida=4
+vida=5
 puntos=0
 oleada=1
-posicion_mc=711,540
-mapa=2
+posicion_mc=960,540
+mapa=1
