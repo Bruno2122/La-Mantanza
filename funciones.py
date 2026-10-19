@@ -109,9 +109,14 @@ def btnlista(anchopanel, alto):
 
     return [
         {"texto": "JUGAR", "rect": pygame.Rect(posx, posy, anchobtn, altobtn), "accion": "jugar"},
-        {"texto": "AJUSTES", "rect": pygame.Rect(posx, posy + espacio, anchobtn, altobtn), "accion": "ajustes"},
+        {"texto": "VENTANA", "rect": pygame.Rect(posx, posy + espacio, anchobtn, altobtn), "accion": "ventana"},
         {"texto": "SALIR", "rect": pygame.Rect(posx, posy + espacio * 2, anchobtn, altobtn), "accion": "salir"}
     ]
+
+def modopant(ancho, alto, ventana):
+    if ventana.get_flags() & pygame.FULLSCREEN:
+        return pygame.display.set_mode((int(ancho * 0.8), int(alto * 0.8)), pygame.RESIZABLE)
+    return pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
 
 def framevideo(video, ancho, alto):
     exito, frame = video.read()
@@ -168,6 +173,43 @@ def cargarsprites(wjug, hjug):
             sprs[d].append(img)
     return sprs
 
+def cargarsprataq(wjug, hjug):
+    dic = {
+        "abajo": [0, 1, 2, 3],
+        "arriba": [4, 5, 6, 7],
+        "izquierda": [8, 9, 10, 11],
+        "derecha": [12, 13, 14, 15]
+    }
+    sprs = {}
+    for d, numsf in dic.items():
+        sprs[d] = []
+        for n in numsf:
+            img = pygame.image.load(f"Sprites/Mc/Ataque_Mc/AMC{n:03d}.png").convert_alpha()
+            img = pygame.transform.scale(img, (wjug, hjug))
+            sprs[d].append(img)
+    return sprs
+
+def iniciarataq(jugdatos):
+    if not jugdatos["ataq"]:
+        jugdatos["ataq"] = True
+        jugdatos["dirataq"] = jugdatos["dir"]
+        jugdatos["fraataq"] = 0
+        jugdatos["ultfraataq"] = pygame.time.get_ticks()
+
+def actualizarataq(jugdatos):
+    if not jugdatos["ataq"]:
+        return
+
+    ahora = pygame.time.get_ticks()
+    if ahora - jugdatos["ultfraataq"] < 100:
+        return
+
+    jugdatos["fraataq"] += 1
+    jugdatos["ultfraataq"] = ahora
+    if jugdatos["fraataq"] >= len(jugdatos["sprataq"][jugdatos["dirataq"]]):
+        jugdatos["ataq"] = False
+        jugdatos["fraataq"] = 0
+
 def crearjugador(ancho, alto):
     hjug = int(alto * 0.125)
     wjug = int(hjug * (52 / 96))
@@ -176,13 +218,19 @@ def crearjugador(ancho, alto):
     rectjug = pygame.Rect(xjug, yjug, wjug, hjug)
     vel = int(alto * 0.009)
     sprs = cargarsprites(wjug, hjug)
+    sprataq = cargarsprataq(wjug, hjug)
 
     jugdatos = {
         "rect": rectjug,
         "vel": vel,
         "sprs": sprs,
+        "sprataq": sprataq,
         "dir": "abajo",
         "frame": 1.0,
+        "ataq": False,
+        "dirataq": "abajo",
+        "fraataq": 0,
+        "ultfraataq": 0,
         "vida": 5,
         "ultimo_daño": -1000
     }
@@ -232,10 +280,13 @@ def dibujarjuego(pantalla, mapagraf, jugdatos, vidas, objetivos, mostrarvida=Tru
     pantalla.blit(mapagraf, (0, 0))
     for objetivo in objetivos:
         pygame.draw.rect(pantalla, (120, 55, 35), objetivo, border_radius=6)
-    d = jugdatos["dir"]
-    secuencia = [0, 1, 2, 1]
-    idx = secuencia[int(jugdatos["frame"]) % 4]
-    spr = jugdatos["sprs"][d][idx]
+    if jugdatos["ataq"]:
+        spr = jugdatos["sprataq"][jugdatos["dirataq"]][jugdatos["fraataq"]]
+    else:
+        d = jugdatos["dir"]
+        secuencia = [0, 1, 2, 1]
+        idx = secuencia[int(jugdatos["frame"]) % 4]
+        spr = jugdatos["sprs"][d][idx]
     pantalla.blit(spr, jugdatos["rect"].topleft)
     if mostrarvida:
         dibujarvida(pantalla, vidas, jugdatos)

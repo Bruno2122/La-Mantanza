@@ -5,11 +5,15 @@ import funciones as fn
 
 pygame.init()
 
-pantalla = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
-ancho, alto = pantalla.get_size()
+ventana = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+ancho, alto = ventana.get_size()
+pantalla = pygame.Surface((ancho, alto))
 pygame.display.set_caption("La Matanza Avanza")
 
-video = cv2.VideoCapture("F/trenfondo.mp4" if cv2.VideoCapture("F/trenfondo.mp4").isOpened() else "trenfondo.mp4")
+video = cv2.VideoCapture("F/trenfondo.mp4")
+if not video.isOpened():
+    video.release()
+    video = cv2.VideoCapture("trenfondo.mp4")
 anchopanel = int(ancho * 0.32)
 
 panelizq, panelder = fn.capas(ancho, alto, anchopanel)
@@ -41,24 +45,34 @@ while jugando:
         if evento.type == pygame.QUIT:
             jugando = False
         elif evento.type == pygame.KEYDOWN:
-            # C
             if evento.key == pygame.K_ESCAPE:
                 if estado in ("juego", "continuara", "derrota"):
                     estado = "menu"
                 else:
                     jugando = False
-            # C
+
         elif evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
+            mouseventana = evento.pos
+            mouse = (
+                mouseventana[0] * ancho // ventana.get_width(),
+                mouseventana[1] * alto // ventana.get_height()
+            )
             if estado == "menu":
                 for b in botones:
                     if b["rect"].collidepoint(mouse):
                         if b["accion"] == "jugar":
-                            # C
                             jugdatos = fn.crearjugador(ancho, alto)
                             estado = "juego"
-                            # C
+                        elif b["accion"] == "ventana":
+                            ventana = fn.modopant(ancho, alto, ventana)
+                            if ventana.get_flags() & pygame.FULLSCREEN:
+                                b["texto"] = "VENTANA"
+                            else:
+                                b["texto"] = "PANTALLA COMPLETA"
                         elif b["accion"] == "salir":
                             jugando = False
+            elif estado in ("juego", "continuara"):
+                fn.iniciarataq(jugdatos)
             elif estado == "derrota":
                 for b in botonesderrota:
                     if b["rect"].collidepoint(mouse):
@@ -72,7 +86,7 @@ while jugando:
         fondosurf = fn.framevideo(video, ancho, alto)
         fn.dibujar(pantalla, fondosurf, panelizq, panelder, anchopanel, t1, t2, rect1, rect2, botones, fuentebtn, mouse)
     elif estado == "juego":
-        # C
+        fn.actualizarataq(jugdatos)
         fn.moverjugador(jugdatos, teclas, ancho, alto)
         fn.recibirdaño(jugdatos, enemigos)
         if jugdatos["vida"] <= 0:
@@ -82,13 +96,14 @@ while jugando:
             jugdatos["rect"].left = 0
         else:
             fn.dibujarjuego(pantalla, mapagraf, jugdatos, vidas, enemigos)
-        # C
     elif estado == "continuara":
-        fn.moverjugador(jugdatos, teclas, ancho, alto, (0.25, 0.75))
+        fn.actualizarataq(jugdatos)
+        fn.moverjugador(jugdatos, teclas, ancho, alto, (0.29, 0.72))
         fn.dibujarjuego(pantalla, mapagraf2, jugdatos, vidas, [])
     elif estado == "derrota":
         fn.dibujarperdida(pantalla, jugdatos, mapagraf, bfuentetitulo, bfontederrota, botonesderrota, mouse)
 
+    ventana.blit(pygame.transform.smoothscale(pantalla, ventana.get_size()), (0, 0))
     pygame.display.flip()
     reloj.tick(60)
 
