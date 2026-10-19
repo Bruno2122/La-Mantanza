@@ -135,7 +135,7 @@ def crearene(ancho, alto):
         "ultfra": 0,
         "ultmov": 0,
         "proximoataq": 0,
-        "vel": max(1, int(alto * 0.009))
+        "vel": max(1, int(alto * 0.001))
     }]
 
 def crearproy(jugdatos):
