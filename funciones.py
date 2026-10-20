@@ -2,12 +2,14 @@ import pygame
 import cv2
 import os
 import math
+import random
 
 def cargardat(ancho, alto):
     vida = 5
     puntos = 0
     oleada = 1
     pesos = 0
+    panchos = 0
     pistola = False
     posicion_mc = (ancho // 2, int(alto * 0.50))
     mapa = 1
@@ -28,6 +30,8 @@ def cargardat(ancho, alto):
                         oleada = max(1, min(20, int(valor)))
                     elif clave == "pesos":
                         pesos = max(0, int(valor))
+                    elif clave == "panchos":
+                        panchos = max(0, int(valor))
                     elif clave == "pistola":
                         pistola = valor == "1"
                     elif clave == "posicion_mc":
@@ -38,14 +42,15 @@ def cargardat(ancho, alto):
                 except ValueError:
                     continue
 
-    return vida, puntos, oleada, pesos, pistola, posicion_mc, mapa
+    return vida, puntos, oleada, pesos, panchos, pistola, posicion_mc, mapa
 
-def guardardat(vida, puntos, oleada, pesos, pistola, posicion_mc, mapa):
+def guardardat(vida, puntos, oleada, pesos, panchos, pistola, posicion_mc, mapa):
     with open("F/Datos.txt", "w", encoding="utf-8") as archivo:
         archivo.write(f"vida={vida}\n")
         archivo.write(f"puntos={puntos}\n")
         archivo.write(f"oleada={oleada}\n")
         archivo.write(f"pesos={pesos}\n")
+        archivo.write(f"panchos={panchos}\n")
         archivo.write(f"pistola={int(pistola)}\n")
         archivo.write(f"posicion_mc={posicion_mc[0]},{posicion_mc[1]}\n")
         archivo.write(f"mapa={mapa}\n")
@@ -128,16 +133,21 @@ def crearene(ancho, alto, cantidad=1, oleada=1):
             img = pygame.image.load(f"Sprites/Boca/BA/BA{n:02d}.png").convert_alpha()
             sprataq[d].append(pygame.transform.scale(img, (wjug, hjug)))
 
-            sprrojos = {d: [rojospr(img) for img in imgs] for d, imgs in sprs.items()}
-            sprataqrojos = {d: [rojospr(img) for img in imgs] for d, imgs in sprataq.items()}
+    sprrojos = {d: [rojospr(img) for img in imgs] for d, imgs in sprs.items()}
+    sprataqrojos = {d: [rojospr(img) for img in imgs] for d, imgs in sprataq.items()}
     enemigos = []
     cantidad = max(1, cantidad)
-    for indice in range(cantidad):
-        columna = indice % 5
-        fila = indice // 5
-        centrox = int(ancho * (0.55 + columna * 0.08))
-        centroy = int(alto * (0.37 + (fila % 4) * 0.10))
-        rect = sprs["abajo"][0].get_rect(center=(centrox, centroy))
+    minx = min(int(ancho * 0.22), max(0, ancho - wjug))
+    maxx = max(minx, int(ancho * 0.94) - wjug)
+    miny = min(int(alto * 0.30), max(0, alto - hjug))
+    maxy = max(miny, int(alto * 0.72) - hjug)
+    espacio = max(12, int(wjug * 0.65))
+    for _ in range(cantidad):
+        rect = sprs["abajo"][0].get_rect()
+        for intento in range(40):
+            rect.topleft = (random.randint(minx, maxx), random.randint(miny, maxy))
+            if all(not rect.inflate(espacio, espacio).colliderect(otro["rect"]) for otro in enemigos):
+                break
         enemigos.append({
             "nombre": "enemigo boca",
             "rect": rect,
@@ -191,7 +201,7 @@ def crearproypistola(jugdatos, destino):
     distancia = math.hypot(dx, dy)
     if distancia == 0:
         return None
-    tam = max(2, int(jugdatos["hitbox"].height * 0.04))
+    tam = max(4, int(jugdatos["hitbox"].height * 0.055))
     proy = pygame.Rect(0, 0, tam, tam)
     proy.center = origen
     return {
@@ -466,6 +476,37 @@ def cargarmira(alto):
     tamano = max(32, int(alto * 0.055))
     return pygame.transform.scale(imagen, (tamano, tamano))
 
+def cargariconosrecursos(alto):
+    iconos = {}
+    tamano = max(28, int(alto * 0.045))
+    for nombre in ("pancho", "peso"):
+        imagen = pygame.image.load(f"Sprites/Botones/{nombre}.png").convert_alpha()
+        escala = tamano / imagen.get_height()
+        dimensiones = (int(imagen.get_width() * escala), tamano)
+        iconos[nombre] = pygame.transform.smoothscale(imagen, dimensiones)
+    return iconos
+
+def dibujarrecursos(pantalla, iconos, pesos, panchos):
+    alto = pantalla.get_height()
+    fuente = pygame.font.Font(None, max(24, int(alto * 0.035)))
+    texto_panchos = fuente.render(str(panchos), True, (255, 255, 255))
+    texto_pesos = fuente.render(str(pesos), True, (255, 255, 255))
+    margen = max(12, int(alto * 0.02))
+    espacio = max(6, int(alto * 0.01))
+    derecha = pantalla.get_width() - margen
+
+    rect_texto_panchos = texto_panchos.get_rect(midright=(derecha, margen + iconos["pancho"].get_height() // 2))
+    rect_pancho = iconos["pancho"].get_rect(midright=(rect_texto_panchos.left - espacio, rect_texto_panchos.centery))
+    rect_texto_pesos = texto_pesos.get_rect(midright=(rect_pancho.left - espacio, rect_pancho.centery))
+    rect_peso = iconos["peso"].get_rect(midright=(rect_texto_pesos.left - espacio, rect_texto_pesos.centery))
+    fondo = pygame.Rect(rect_peso.left - espacio, margen // 2, derecha - rect_peso.left + espacio * 2, iconos["pancho"].get_height() + margen)
+    pygame.draw.rect(pantalla, (0, 0, 0, 170), fondo, border_radius=5)
+    pantalla.blit(iconos["peso"], rect_peso)
+    pantalla.blit(texto_pesos, rect_texto_pesos)
+    pantalla.blit(iconos["pancho"], rect_pancho)
+    pantalla.blit(texto_panchos, rect_texto_panchos)
+    return rect_pancho
+
 def cargarsprites(wjug, hjug):
     dic = {
         "abajo": [0, 1, 2],
@@ -605,7 +646,7 @@ def moverjugador(jugdatos, teclas, ancho, alto, limites=(0.40, 0.73)):
     else:
         jugdatos["frame"] = 1.0
 
-def dibujarjuego(pantalla, mapagraf, jugdatos, vidas, objetivos, mostrarvida=True):
+def dibujarjuego(pantalla, mapagraf, jugdatos, vidas, objetivos, mostrarvida=True, proys=None):
     pantalla.blit(mapagraf, (0, 0))
     for objetivo in objetivos:
         if isinstance(objetivo, dict):
@@ -634,5 +675,9 @@ def dibujarjuego(pantalla, mapagraf, jugdatos, vidas, objetivos, mostrarvida=Tru
         else:
             spr = jugdatos["sprs"][d][idx]
     pantalla.blit(spr, jugdatos["rect"].topleft)
+    for proy in proys or []:
+        color = (255, 230, 90) if proy.get("lado") == "pistola" else (235, 85, 75) if proy.get("lado") == "enemigo" else (250, 250, 150)
+        pygame.draw.ellipse(pantalla, color, proy["rect"])
+        pygame.draw.ellipse(pantalla, (35, 30, 20), proy["rect"], 1)
     if mostrarvida:
         dibujarvida(pantalla, vidas, jugdatos)

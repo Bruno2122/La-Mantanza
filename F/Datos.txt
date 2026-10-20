@@ -1,7 +1,8 @@
-vida=4
+vida=3
 puntos=0
-oleada=1
-pesos=0
-pistola=0
-posicion_mc=1224,642
+oleada=6
+pesos=300
+panchos=3
+pistola=1
+posicion_mc=0,572
 mapa=2
