@@ -208,8 +208,9 @@ def crearproypistola(jugdatos, destino):
         "rect": proy,
         "dx": dx / distancia * max(18, int(jugdatos["hitbox"].height * 0.35)),
         "dy": dy / distancia * max(18, int(jugdatos["hitbox"].height * 0.35)),
-        "alcance": math.hypot(proy.width + 2 * abs(dx), proy.height + 2 * abs(dy)),
+        "alcance": distancia,
         "recorrido": 0,
+        "destino": destino,
         "lado": "pistola"
     }
 
@@ -293,15 +294,27 @@ def moverproy(proys, enemigos, ancho, alto, jugdatos=None):
     for proy in proys[:]:
         if proy.get("lado") == "pistola":
             anterior = proy["rect"].center
-            movx = round(proy["dx"])
-            movy = round(proy["dy"])
-            proy["rect"].move_ip(movx, movy)
-            proy["recorrido"] += math.hypot(movx, movy)
+            velocidad = math.hypot(proy["dx"], proy["dy"])
+            restante = max(0, proy["alcance"] - proy["recorrido"])
+            paso = min(velocidad, restante)
+            if paso >= restante:
+                proy["rect"].center = proy["destino"]
+            else:
+                movx = round(proy["dx"] / velocidad * paso)
+                movy = round(proy["dy"] / velocidad * paso)
+                proy["rect"].move_ip(movx, movy)
+            movx = proy["rect"].centerx - anterior[0]
+            movy = proy["rect"].centery - anterior[1]
+            proy["recorrido"] = min(proy["alcance"], proy["recorrido"] + math.hypot(movx, movy))
             actual = proy["rect"].center
             for enemigo in enemigos:
                 if enemigo["vida"] > 0 and enemigo["hitbox"].clipline(anterior, actual):
-                    enemigo["vida"] = 0
-                    enemigo["golpe_hasta"] = ahora
+                    enemigo["vida"] = max(0, enemigo["vida"] - 2)
+                    enemigo["golpe_hasta"] = ahora + 180
+                    proys.remove(proy)
+                    break
+            if proy not in proys:
+                continue
             if proy["recorrido"] >= proy["alcance"] or not pygame.Rect(0, 0, ancho, alto).colliderect(proy["rect"]):
                 proys.remove(proy)
             continue
@@ -486,11 +499,12 @@ def cargariconosrecursos(alto):
         iconos[nombre] = pygame.transform.smoothscale(imagen, dimensiones)
     return iconos
 
-def dibujarrecursos(pantalla, iconos, pesos, panchos):
+def dibujarrecursos(pantalla, iconos, pesos, panchos, balas=None, balas_maximas=0):
     alto = pantalla.get_height()
     fuente = pygame.font.Font(None, max(24, int(alto * 0.035)))
     texto_panchos = fuente.render(str(panchos), True, (255, 255, 255))
     texto_pesos = fuente.render(str(pesos), True, (255, 255, 255))
+    texto_balas = fuente.render(f"Balas: {balas}/{balas_maximas}" if balas is not None else "Balas: --", True, (255, 255, 255))
     margen = max(12, int(alto * 0.02))
     espacio = max(6, int(alto * 0.01))
     derecha = pantalla.get_width() - margen
@@ -499,13 +513,25 @@ def dibujarrecursos(pantalla, iconos, pesos, panchos):
     rect_pancho = iconos["pancho"].get_rect(midright=(rect_texto_panchos.left - espacio, rect_texto_panchos.centery))
     rect_texto_pesos = texto_pesos.get_rect(midright=(rect_pancho.left - espacio, rect_pancho.centery))
     rect_peso = iconos["peso"].get_rect(midright=(rect_texto_pesos.left - espacio, rect_texto_pesos.centery))
-    fondo = pygame.Rect(rect_peso.left - espacio, margen // 2, derecha - rect_peso.left + espacio * 2, iconos["pancho"].get_height() + margen)
+    rect_balas = texto_balas.get_rect(midright=(rect_peso.left - espacio, rect_peso.centery))
+    fondo = pygame.Rect(rect_balas.left - espacio, margen // 2, derecha - rect_balas.left + espacio * 2, iconos["pancho"].get_height() + margen)
     pygame.draw.rect(pantalla, (0, 0, 0, 170), fondo, border_radius=5)
+    pantalla.blit(texto_balas, rect_balas)
     pantalla.blit(iconos["peso"], rect_peso)
     pantalla.blit(texto_pesos, rect_texto_pesos)
     pantalla.blit(iconos["pancho"], rect_pancho)
     pantalla.blit(texto_panchos, rect_texto_panchos)
     return rect_pancho
+
+def dibujaroleada(pantalla, oleada):
+    alto = pantalla.get_height()
+    fuente = pygame.font.Font(None, max(28, int(alto * 0.045)))
+    texto = fuente.render(f"Oleada {oleada}", True, (255, 255, 255))
+    margen = max(12, int(alto * 0.02))
+    rect = texto.get_rect(topleft=(margen * 2, margen))
+    fondo = rect.inflate(margen * 2, margen)
+    pygame.draw.rect(pantalla, (0, 0, 0, 170), fondo, border_radius=5)
+    pantalla.blit(texto, rect)
 
 def cargarsprites(wjug, hjug):
     dic = {

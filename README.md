@@ -1,4 +1,5 @@
 Integrantes del grupo:
 Lautaro Macayo, Bruno Montenegro, Santiago Lafont
 Aclaracion: 
-El bloque temporal, sirve unicamente para mostrar la pantalla de derrota y el sistema de vida, y como su nombre lo dice, es temporal
+Para entrar al bazar es con espacio, atacar con click, para comer los panchos es con click al icono de panchos.
+Te recomiendo apenas empezas, compra la pistola. Te di 20 pesos de regalo.

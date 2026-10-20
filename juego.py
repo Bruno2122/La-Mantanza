@@ -34,6 +34,9 @@ mensaje_pancho = ""
 mensaje_pancho_hasta = 0
 PRECIO_PISTOLA = 10
 PRECIO_PANCHO = 5
+BALAS_MAXIMAS = 6
+balas = BALAS_MAXIMAS
+recarga_hasta = 0
 vida, puntos, oleada, pesos, panchos, pistola, posicion_mc, mapa = fn.cargardat(ancho, alto)
 jugdatos = fn.crearjugador(ancho, alto)
 jugdatos["vida"] = vida
@@ -49,6 +52,11 @@ estado = "menu"
 jugando = True
 
 while jugando:
+    ahora = pygame.time.get_ticks()
+    if recarga_hasta and ahora >= recarga_hasta:
+        balas = BALAS_MAXIMAS
+        recarga_hasta = 0
+
     mouseventana = pygame.mouse.get_pos()
     mouse = (
         mouseventana[0] * ancho // ventana.get_width(),
@@ -185,16 +193,24 @@ while jugando:
                         transicion["inicio"] = pygame.time.get_ticks()
             elif estado == "juego" and transicion["estado"] == "ninguno":
                 if pistola:
-                    proy = fn.crearproypistola(jugdatos, mouse)
-                    if proy is not None:
-                        proys.append(proy)
+                    if balas > 0:
+                        proy = fn.crearproypistola(jugdatos, mouse)
+                        if proy is not None:
+                            proys.append(proy)
+                            balas -= 1
+                            if balas == 0:
+                                recarga_hasta = pygame.time.get_ticks() + 2000
                 elif fn.iniciarataq(jugdatos):
                     proys.append(fn.crearproy(jugdatos))
             elif estado == "continuara":
                 if pistola:
-                    proy = fn.crearproypistola(jugdatos, mouse)
-                    if proy is not None:
-                        proys.append(proy)
+                    if balas > 0:
+                        proy = fn.crearproypistola(jugdatos, mouse)
+                        if proy is not None:
+                            proys.append(proy)
+                            balas -= 1
+                            if balas == 0:
+                                recarga_hasta = pygame.time.get_ticks() + 2000
                 elif fn.iniciarataq(jugdatos):
                     proys.append(fn.crearproy(jugdatos))
             elif estado == "derrota":
@@ -239,7 +255,8 @@ while jugando:
             jugdatos["rect"].left = 0
         else:
             fn.dibujarjuego(pantalla, mapagraf, jugdatos, vidas, [], proys=proys)
-            rect_pancho_hud = fn.dibujarrecursos(pantalla, iconos_recursos, pesos, panchos)
+            rect_pancho_hud = fn.dibujarrecursos(pantalla, iconos_recursos, pesos, panchos, balas if pistola else None, BALAS_MAXIMAS)
+            fn.dibujaroleada(pantalla, oleada)
             if pygame.time.get_ticks() < mensaje_pancho_hasta:
                 texto_uso = fuente_compra.render(mensaje_pancho, True, (255, 255, 255))
                 pantalla.blit(texto_uso, texto_uso.get_rect(topright=(ancho - int(alto * 0.02), rect_pancho_hud.bottom + 4)))
@@ -311,7 +328,8 @@ while jugando:
             fn.dibujarperdida(pantalla, jugdatos, mapagraf2, bfuentetitulo, bfontederrota, botonesderrota, mouse)
         else:
             fn.dibujarjuego(pantalla, mapagraf2, jugdatos, vidas, enemigos, proys=proys)
-            rect_pancho_hud = fn.dibujarrecursos(pantalla, iconos_recursos, pesos, panchos)
+            rect_pancho_hud = fn.dibujarrecursos(pantalla, iconos_recursos, pesos, panchos, balas if pistola else None, BALAS_MAXIMAS)
+            fn.dibujaroleada(pantalla, oleada)
             if pygame.time.get_ticks() < mensaje_pancho_hasta:
                 texto_uso = fuente_compra.render(mensaje_pancho, True, (255, 255, 255))
                 pantalla.blit(texto_uso, texto_uso.get_rect(topright=(ancho - int(alto * 0.02), rect_pancho_hud.bottom + 4)))
@@ -325,6 +343,8 @@ while jugando:
         pantalla.blit(capa, (0, 0))
         texto = bfuentetitulo.render("COMPLETASTE LAS 20 OLEADAS", True, (255, 255, 255))
         pantalla.blit(texto, texto.get_rect(center=(ancho // 2, alto // 2)))
+        subvictoria = bfontederrota.render("GG fucking Easy", True, (255, 255, 255))
+        pantalla.blit(subvictoria, subvictoria.get_rect(center=(ancho // 2, int(alto * 0.60))))
 
     mostrar_mira = pistola and estado in ("juego", "continuara")
     pygame.mouse.set_visible(not mostrar_mira)
