@@ -8,6 +8,7 @@ def cargardat(ancho, alto):
     puntos = 0
     oleada = 1
     pesos = 0
+    pistola = False
     posicion_mc = (ancho // 2, int(alto * 0.50))
     mapa = 1
     ruta = "F/Datos.txt"
@@ -27,6 +28,8 @@ def cargardat(ancho, alto):
                         oleada = max(1, min(20, int(valor)))
                     elif clave == "pesos":
                         pesos = max(0, int(valor))
+                    elif clave == "pistola":
+                        pistola = valor == "1"
                     elif clave == "posicion_mc":
                         x, y = valor.split(",", 1)
                         posicion_mc = (int(x), int(y))
@@ -35,14 +38,15 @@ def cargardat(ancho, alto):
                 except ValueError:
                     continue
 
-    return vida, puntos, oleada, pesos, posicion_mc, mapa
+    return vida, puntos, oleada, pesos, pistola, posicion_mc, mapa
 
-def guardardat(vida, puntos, oleada, pesos, posicion_mc, mapa):
+def guardardat(vida, puntos, oleada, pesos, pistola, posicion_mc, mapa):
     with open("F/Datos.txt", "w", encoding="utf-8") as archivo:
         archivo.write(f"vida={vida}\n")
         archivo.write(f"puntos={puntos}\n")
         archivo.write(f"oleada={oleada}\n")
         archivo.write(f"pesos={pesos}\n")
+        archivo.write(f"pistola={int(pistola)}\n")
         archivo.write(f"posicion_mc={posicion_mc[0]},{posicion_mc[1]}\n")
         archivo.write(f"mapa={mapa}\n")
 
@@ -104,7 +108,7 @@ def rojospr(spr):
     img.fill((255, 70, 70, 255), special_flags=pygame.BLEND_RGBA_MULT)
     return img
 
-def crearene(ancho, alto):
+def crearene(ancho, alto, cantidad=1, oleada=1):
     hjug = int(alto * 0.125)
     wjug = int(hjug * (52 / 96))
     sec = {
@@ -124,26 +128,36 @@ def crearene(ancho, alto):
             img = pygame.image.load(f"Sprites/Boca/BA/BA{n:02d}.png").convert_alpha()
             sprataq[d].append(pygame.transform.scale(img, (wjug, hjug)))
 
-    rect = sprs["abajo"][0].get_rect(center=(int(ancho * 0.78), int(alto * 0.50)))
-    return [{
-        "nombre": "enemigo boca",
-        "rect": rect,
-        "hitbox": creahit(sprs["abajo"][0], rect.topleft),
-        "sprs": sprs,
-        "sprrojos": {d: [rojospr(img) for img in imgs] for d, imgs in sprs.items()},
-        "sprataq": sprataq,
-        "sprataqrojos": {d: [rojospr(img) for img in imgs] for d, imgs in sprataq.items()},
-        "vida": 3,
-        "golpe_hasta": 0,
-        "dir": "abajo",
-        "frame": 0.0,
-        "ataq": False,
-        "fraataq": 0,
-        "ultfra": 0,
-        "ultmov": 0,
-        "proximoataq": 0,
-        "vel": max(1, int(alto * 0.005))
-    }]
+            sprrojos = {d: [rojospr(img) for img in imgs] for d, imgs in sprs.items()}
+            sprataqrojos = {d: [rojospr(img) for img in imgs] for d, imgs in sprataq.items()}
+    enemigos = []
+    cantidad = max(1, cantidad)
+    for indice in range(cantidad):
+        columna = indice % 5
+        fila = indice // 5
+        centrox = int(ancho * (0.55 + columna * 0.08))
+        centroy = int(alto * (0.37 + (fila % 4) * 0.10))
+        rect = sprs["abajo"][0].get_rect(center=(centrox, centroy))
+        enemigos.append({
+            "nombre": "enemigo boca",
+            "rect": rect,
+            "hitbox": creahit(sprs["abajo"][0], rect.topleft),
+            "sprs": sprs,
+            "sprrojos": sprrojos,
+            "sprataq": sprataq,
+            "sprataqrojos": sprataqrojos,
+            "vida": 3,
+            "golpe_hasta": 0,
+            "dir": "abajo",
+            "frame": 0.0,
+            "ataq": False,
+            "fraataq": 0,
+            "ultfra": 0,
+            "ultmov": 0,
+            "proximoataq": 0,
+            "vel": max(1, int(alto * 0.005 * (1.3 if oleada >= 15 else 1.0)))
+        })
+    return enemigos
 
 def crearproy(jugdatos):
     rect = jugdatos["hitbox"]
@@ -169,6 +183,25 @@ def crearproy(jugdatos):
         dx = vel
 
     return {"rect": proy, "dx": dx, "dy": dy, "alcance": alcance, "recorrido": 0, "tocados": set()}
+
+def crearproypistola(jugdatos, destino):
+    origen = jugdatos["hitbox"].center
+    dx = destino[0] - origen[0]
+    dy = destino[1] - origen[1]
+    distancia = math.hypot(dx, dy)
+    if distancia == 0:
+        return None
+    tam = max(2, int(jugdatos["hitbox"].height * 0.04))
+    proy = pygame.Rect(0, 0, tam, tam)
+    proy.center = origen
+    return {
+        "rect": proy,
+        "dx": dx / distancia * max(18, int(jugdatos["hitbox"].height * 0.35)),
+        "dy": dy / distancia * max(18, int(jugdatos["hitbox"].height * 0.35)),
+        "alcance": math.hypot(proy.width + 2 * abs(dx), proy.height + 2 * abs(dy)),
+        "recorrido": 0,
+        "lado": "pistola"
+    }
 
 def crearproyene(enemigo, jugdatos):
     dx = jugdatos["hitbox"].centerx - enemigo["hitbox"].centerx
@@ -241,16 +274,28 @@ def actualizaene(enemigos, jugdatos, proys):
 
 def moverproy(proys, enemigos, ancho, alto, jugdatos=None):
     ahora = pygame.time.get_ticks()
-    # Sumar pesos al eliminar enemigos
-    import sys
-    caller_globals = sys._getframe(1).f_globals
     for enemigo in enemigos[:]:
         if enemigo["vida"] <= 0 and ahora >= enemigo["golpe_hasta"]:
             enemigos.remove(enemigo)
-            if "pesos" in caller_globals:
-                caller_globals["pesos"] += 10  # Puedes ajustar la cantidad de pesos por enemigo aquí
+            if jugdatos is not None:
+                jugdatos["pesos"] = jugdatos.get("pesos", 0) + 10
 
     for proy in proys[:]:
+        if proy.get("lado") == "pistola":
+            anterior = proy["rect"].center
+            movx = round(proy["dx"])
+            movy = round(proy["dy"])
+            proy["rect"].move_ip(movx, movy)
+            proy["recorrido"] += math.hypot(movx, movy)
+            actual = proy["rect"].center
+            for enemigo in enemigos:
+                if enemigo["vida"] > 0 and enemigo["hitbox"].clipline(anterior, actual):
+                    enemigo["vida"] = 0
+                    enemigo["golpe_hasta"] = ahora
+            if proy["recorrido"] >= proy["alcance"] or not pygame.Rect(0, 0, ancho, alto).colliderect(proy["rect"]):
+                proys.remove(proy)
+            continue
+
         paso = min(abs(proy["dx"] or proy["dy"]), proy["alcance"] - proy["recorrido"])
         movx = paso if proy["dx"] > 0 else -paso if proy["dx"] < 0 else 0
         movy = paso if proy["dy"] > 0 else -paso if proy["dy"] < 0 else 0
@@ -402,11 +447,24 @@ def cargarmapa(ancho, alto):
     return pygame.transform.scale(img, (ancho, alto)).convert()
 
 def cargabazar(ancho, alto):
-    r0 = "Sprites/Andy/andy00.png" if os.path.exists("Sprites/Andy/andy00.png") else "andy00.png"
-    r1 = "Sprites/Andy/andy01.png" if os.path.exists("Sprites/Andy/andy01.png") else "andy01.png"
-    i0 = pygame.image.load(r0).convert()
-    i1 = pygame.image.load(r1).convert()
-    return pygame.transform.scale(i0, (ancho, alto)), pygame.transform.scale(i1, (ancho, alto))
+    imagenes = []
+    for nombre in ("andy00", "andy01", "andy02", "andy03"):
+        ruta = f"Sprites/Andy/{nombre}.png"
+        if not os.path.exists(ruta):
+            ruta = f"{nombre}.png"
+        imagen = pygame.image.load(ruta).convert()
+        imagenes.append(pygame.transform.scale(imagen, (ancho, alto)))
+    return imagenes
+
+def cargarmira(alto):
+    imagen = pygame.image.load("Sprites/Botones/mira.png").convert_alpha()
+    for y in range(imagen.get_height()):
+        for x in range(imagen.get_width()):
+            pixel = imagen.get_at((x, y))
+            if pixel.a:
+                imagen.set_at((x, y), (255, 255, 255, pixel.a))
+    tamano = max(32, int(alto * 0.055))
+    return pygame.transform.scale(imagen, (tamano, tamano))
 
 def cargarsprites(wjug, hjug):
     dic = {

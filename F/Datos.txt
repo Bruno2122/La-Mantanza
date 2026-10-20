@@ -1,6 +1,7 @@
-vida=1
+vida=4
 puntos=0
-oleada=4
-pesos=100
-posicion_mc=351,474
+oleada=1
+pesos=0
+pistola=0
+posicion_mc=1224,642
 mapa=2
