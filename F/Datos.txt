@@ -1,5 +1,6 @@
-vida=5
+vida=1
 puntos=0
-oleada=1
-posicion_mc=960,540
-mapa=1
+oleada=4
+pesos=100
+posicion_mc=351,474
+mapa=2

@@ -7,6 +7,7 @@ def cargardat(ancho, alto):
     vida = 5
     puntos = 0
     oleada = 1
+    pesos = 0
     posicion_mc = (ancho // 2, int(alto * 0.50))
     mapa = 1
     ruta = "F/Datos.txt"
@@ -24,21 +25,24 @@ def cargardat(ancho, alto):
                         puntos = max(0, int(valor))
                     elif clave == "oleada":
                         oleada = max(1, min(20, int(valor)))
+                    elif clave == "pesos":
+                        pesos = max(0, int(valor))
                     elif clave == "posicion_mc":
                         x, y = valor.split(",", 1)
                         posicion_mc = (int(x), int(y))
                     elif clave == "mapa":
-                        mapa = max(1, min(2, int(valor)))
+                        mapa = "bazar" if valor.lower() == "bazar" else max(1, min(2, int(valor)))
                 except ValueError:
                     continue
 
-    return vida, puntos, oleada, posicion_mc, mapa
+    return vida, puntos, oleada, pesos, posicion_mc, mapa
 
-def guardardat(vida, puntos, oleada, posicion_mc, mapa):
+def guardardat(vida, puntos, oleada, pesos, posicion_mc, mapa):
     with open("F/Datos.txt", "w", encoding="utf-8") as archivo:
         archivo.write(f"vida={vida}\n")
         archivo.write(f"puntos={puntos}\n")
         archivo.write(f"oleada={oleada}\n")
+        archivo.write(f"pesos={pesos}\n")
         archivo.write(f"posicion_mc={posicion_mc[0]},{posicion_mc[1]}\n")
         archivo.write(f"mapa={mapa}\n")
 
@@ -56,6 +60,9 @@ def ajustapos(jugdatos, posicion_mc, ancho, alto, mapa):
     rect.top = max(topmin, min(posicion_mc[1], topmax))
     spr = jugdatos["sprs"][jugdatos["dir"]][0]
     jugdatos["hitbox"] = creahit(spr, rect.topleft)
+
+def crearpuerta(ancho, alto):
+    return pygame.Rect(int(ancho * 0.87), int(alto * 0.29), int(ancho * 0.05), int(alto * 0.08))
 
 def cargarmapa2(ancho, alto):
     img = pygame.image.load("Sprites/mapa2.png")
@@ -234,9 +241,14 @@ def actualizaene(enemigos, jugdatos, proys):
 
 def moverproy(proys, enemigos, ancho, alto, jugdatos=None):
     ahora = pygame.time.get_ticks()
+    # Sumar pesos al eliminar enemigos
+    import sys
+    caller_globals = sys._getframe(1).f_globals
     for enemigo in enemigos[:]:
         if enemigo["vida"] <= 0 and ahora >= enemigo["golpe_hasta"]:
             enemigos.remove(enemigo)
+            if "pesos" in caller_globals:
+                caller_globals["pesos"] += 10  # Puedes ajustar la cantidad de pesos por enemigo aquí
 
     for proy in proys[:]:
         paso = min(abs(proy["dx"] or proy["dy"]), proy["alcance"] - proy["recorrido"])
@@ -388,6 +400,13 @@ def cargarmapa(ancho, alto):
     ruta = "F/Mapa.png" if os.path.exists("F/Mapa.png") else "Mapa.png"
     img = pygame.image.load(ruta)
     return pygame.transform.scale(img, (ancho, alto)).convert()
+
+def cargabazar(ancho, alto):
+    r0 = "Sprites/Andy/andy00.png" if os.path.exists("Sprites/Andy/andy00.png") else "andy00.png"
+    r1 = "Sprites/Andy/andy01.png" if os.path.exists("Sprites/Andy/andy01.png") else "andy01.png"
+    i0 = pygame.image.load(r0).convert()
+    i1 = pygame.image.load(r1).convert()
+    return pygame.transform.scale(i0, (ancho, alto)), pygame.transform.scale(i1, (ancho, alto))
 
 def cargarsprites(wjug, hjug):
     dic = {
