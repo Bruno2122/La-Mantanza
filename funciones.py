@@ -4,6 +4,8 @@ import os
 import math
 import random
 
+_fuentes_recursos = {}
+
 def cargardat(ancho, alto):
     vida = 5
     puntos = 0
@@ -501,7 +503,10 @@ def cargariconosrecursos(alto):
 
 def dibujarrecursos(pantalla, iconos, pesos, panchos, balas=None, balas_maximas=0):
     alto = pantalla.get_height()
-    fuente = pygame.font.Font(None, max(24, int(alto * 0.035)))
+    tamfuente = max(24, int(alto * 0.035))
+    if tamfuente not in _fuentes_recursos:
+        _fuentes_recursos[tamfuente] = pygame.font.Font(None, tamfuente)
+    fuente = _fuentes_recursos[tamfuente]
     texto_panchos = fuente.render(str(panchos), True, (255, 255, 255))
     texto_pesos = fuente.render(str(pesos), True, (255, 255, 255))
     texto_balas = fuente.render(f"Balas: {balas}/{balas_maximas}" if balas is not None else "Balas: --", True, (255, 255, 255))
@@ -525,7 +530,10 @@ def dibujarrecursos(pantalla, iconos, pesos, panchos, balas=None, balas_maximas=
 
 def dibujaroleada(pantalla, oleada):
     alto = pantalla.get_height()
-    fuente = pygame.font.Font(None, max(28, int(alto * 0.045)))
+    tamfuente = max(28, int(alto * 0.045))
+    if tamfuente not in _fuentes_recursos:
+        _fuentes_recursos[tamfuente] = pygame.font.Font(None, tamfuente)
+    fuente = _fuentes_recursos[tamfuente]
     texto = fuente.render(f"Oleada {oleada}", True, (255, 255, 255))
     margen = max(12, int(alto * 0.02))
     rect = texto.get_rect(topleft=(margen * 2, margen))
@@ -565,8 +573,16 @@ def cargarsprataq(wjug, hjug):
             sprs[d].append(img)
     return sprs
 
-def iniciarataq(jugdatos):
+def iniciarataq(jugdatos, destino=None):
     if not jugdatos["ataq"]:
+        if destino is not None:
+            dx = destino[0] - jugdatos["hitbox"].centerx
+            dy = destino[1] - jugdatos["hitbox"].centery
+            if dx != 0 or dy != 0:
+                if abs(dx) >= abs(dy):
+                    jugdatos["dir"] = "derecha" if dx > 0 else "izquierda"
+                else:
+                    jugdatos["dir"] = "abajo" if dy > 0 else "arriba"
         jugdatos["ataq"] = True
         jugdatos["dirataq"] = jugdatos["dir"]
         jugdatos["fraataq"] = 0

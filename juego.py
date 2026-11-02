@@ -8,6 +8,7 @@ pygame.init()
 ventana = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
 ancho, alto = ventana.get_size()
 pantalla = pygame.Surface((ancho, alto))
+pantalla_ventana = pygame.Surface(ventana.get_size())
 pygame.display.set_caption("La Matanza Avanza")
 
 video = cv2.VideoCapture("F/trenfondo.mp4")
@@ -24,8 +25,14 @@ botones = fn.btnlista(anchopanel, alto)
 mapagraf = fn.cargarmapa(ancho, alto)
 mapagraf2 = fn.cargarmapa2(ancho, alto)
 andy00, andy01, andy02, andy03 = fn.cargabazar(ancho, alto)
+sprites_intro = [
+    pygame.image.load(f"Sprites/Mc/Inicio/intro{indice:02d}.png").convert_alpha()
+    for indice in range(15)
+]
 mira = fn.cargarmira(alto)
 iconos_recursos = fn.cargariconosrecursos(alto)
+tam_pancho = int(alto * 0.075)
+pancho_tienda = pygame.transform.scale(iconos_recursos["pancho"], (tam_pancho, tam_pancho))
 fuente_compra = pygame.font.Font(None, max(24, int(alto * 0.035)))
 puertabazar = fn.crearpuerta(ancho, alto)
 transicion = {"estado": "ninguno", "inicio": 0}
@@ -48,7 +55,11 @@ enemigos = fn.crearene(ancho, alto, min(oleada + 2, 20), oleada) if mapa == 2 el
 proys = []
 rect_pancho_hud = None
 reloj = pygame.time.Clock()
-estado = "menu"
+estado = "intro"
+inicio_intro = pygame.time.get_ticks()
+DURACION_ZOOM_INTRO = 900
+DURACION_CUADRO_INTRO = 120
+ultimo_guardado = pygame.time.get_ticks()
 jugando = True
 
 while jugando:
@@ -107,6 +118,7 @@ while jugando:
                     panchos -= 1
                     jugdatos["vida"] = 5
                     mensaje_pancho = "Vida restaurada"
+                    fn.guardardat(jugdatos["vida"], puntos, oleada, pesos, panchos, pistola, jugdatos["rect"].topleft, mapa)
                 elif jugdatos["vida"] >= 5:
                     mensaje_pancho = "Vida completa"
                 else:
@@ -145,6 +157,7 @@ while jugando:
                             estado = "juego"
                         elif b["accion"] == "ventana":
                             ventana = fn.modopant(ancho, alto, ventana)
+                            pantalla_ventana = pygame.Surface(ventana.get_size())
                             if ventana.get_flags() & pygame.FULLSCREEN:
                                 b["texto"] = "VENTANA"
                             else:
@@ -176,6 +189,7 @@ while jugando:
                             panchos += 1
                             jugdatos["pesos"] = pesos
                             mensaje_compra = "Pancho comprado"
+                            fn.guardardat(jugdatos["vida"], puntos, oleada, pesos, panchos, pistola, jugdatos["rect"].topleft, mapa)
                         else:
                             mensaje_compra = f"Necesitas {PRECIO_PANCHO} pesos"
                     elif comprar_pistola.collidepoint(mouse):
@@ -186,6 +200,7 @@ while jugando:
                             pistola = True
                             jugdatos["pesos"] = pesos
                             mensaje_compra = "Pistola comprada"
+                            fn.guardardat(jugdatos["vida"], puntos, oleada, pesos, panchos, pistola, jugdatos["rect"].topleft, mapa)
                         else:
                             mensaje_compra = f"Necesitas {PRECIO_PISTOLA} pesos"
                     elif volver.collidepoint(mouse):
@@ -200,7 +215,7 @@ while jugando:
                             balas -= 1
                             if balas == 0:
                                 recarga_hasta = pygame.time.get_ticks() + 2000
-                elif fn.iniciarataq(jugdatos):
+                elif fn.iniciarataq(jugdatos, mouse):
                     proys.append(fn.crearproy(jugdatos))
             elif estado == "continuara":
                 if pistola:
@@ -211,7 +226,7 @@ while jugando:
                             balas -= 1
                             if balas == 0:
                                 recarga_hasta = pygame.time.get_ticks() + 2000
-                elif fn.iniciarataq(jugdatos):
+                elif fn.iniciarataq(jugdatos, mouse):
                     proys.append(fn.crearproy(jugdatos))
             elif estado == "derrota":
                 for b in botonesderrota:
@@ -235,7 +250,33 @@ while jugando:
                         elif b["accion"] == "menu":
                             estado = "menu"
 
-    if estado == "menu":
+    if estado == "intro":
+        tiempo_intro = pygame.time.get_ticks() - inicio_intro
+        duracion_total = DURACION_ZOOM_INTRO + (len(sprites_intro) - 1) * DURACION_CUADRO_INTRO
+
+        if tiempo_intro >= duracion_total:
+            estado = "menu"
+            fondosurf = fn.framevideo(video, ancho, alto)
+            fn.dibujar(pantalla, fondosurf, panelizq, panelder, anchopanel, t1, t2, rect1, rect2, botones, fuentebtn, mouse)
+        else:
+            pantalla.fill((0, 0, 0))
+            if tiempo_intro < DURACION_ZOOM_INTRO:
+                progreso = tiempo_intro / DURACION_ZOOM_INTRO
+                progreso = 1 - (1 - progreso) ** 3
+                indice = 0
+                altura_personaje = int(alto * (0.16 + 0.42 * progreso))
+            else:
+                indice = min(
+                    len(sprites_intro) - 1,
+                    1 + (tiempo_intro - DURACION_ZOOM_INTRO) // DURACION_CUADRO_INTRO
+                )
+                altura_personaje = int(alto * 0.58)
+
+            sprite = sprites_intro[indice]
+            ancho_personaje = int(altura_personaje * sprite.get_width() / sprite.get_height())
+            sprite = pygame.transform.smoothscale(sprite, (ancho_personaje, altura_personaje))
+            pantalla.blit(sprite, sprite.get_rect(center=(ancho // 2, alto // 2)))
+    elif estado == "menu":
         fondosurf = fn.framevideo(video, ancho, alto)
         fn.dibujar(pantalla, fondosurf, panelizq, panelder, anchopanel, t1, t2, rect1, rect2, botones, fuentebtn, mouse)
     elif estado == "juego":
@@ -296,8 +337,7 @@ while jugando:
             pantalla.blit(andy03, (0, 0))
             texto_saldo = fuente_compra.render(f"Pesos: {pesos}", True, (255, 255, 255))
             pantalla.blit(texto_saldo, texto_saldo.get_rect(center=(int(ancho * 0.80), int(alto * 0.22))))
-            imagen_pancho = pygame.transform.smoothscale(iconos_recursos["pancho"], (int(alto * 0.075), int(alto * 0.075)))
-            pantalla.blit(imagen_pancho, imagen_pancho.get_rect(center=(int(ancho * 0.80), int(alto * 0.39))))
+            pantalla.blit(pancho_tienda, pancho_tienda.get_rect(center=(int(ancho * 0.80), int(alto * 0.39))))
             texto_pancho = fuente_compra.render(f"PANCHO - {PRECIO_PANCHO} PESOS", True, (255, 255, 255))
             pantalla.blit(texto_pancho, texto_pancho.get_rect(center=(int(ancho * 0.80), int(alto * 0.48))))
             texto_pistola = fuente_compra.render(f"PISTOLA - {PRECIO_PISTOLA} PESOS", True, (255, 255, 255))
@@ -353,13 +393,18 @@ while jugando:
 
     vida = jugdatos["vida"]
     posicion_mc = jugdatos["rect"].topleft
-    ventana.blit(pygame.transform.smoothscale(pantalla, ventana.get_size()), (0, 0))
+    if ventana.get_size() == pantalla.get_size():
+        ventana.blit(pantalla, (0, 0))
+    else:
+        pygame.transform.scale(pantalla, ventana.get_size(), pantalla_ventana)
+        ventana.blit(pantalla_ventana, (0, 0))
     pygame.display.flip()
     reloj.tick(60)
 
-    # Guardar datos en cada ciclo (opcional, puedes moverlo a eventos importantes)
     pesos = jugdatos.get("pesos", pesos)
-    fn.guardardat(vida, puntos, oleada, pesos, panchos, pistola, posicion_mc, mapa)
+    if ahora - ultimo_guardado >= 5000:
+        fn.guardardat(vida, puntos, oleada, pesos, panchos, pistola, posicion_mc, mapa)
+        ultimo_guardado = ahora
 
 video.release()
 pygame.quit()
