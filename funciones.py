@@ -62,18 +62,73 @@ def creahit(spr, pos):
     hitbox.inflate_ip(-max(2, int(hitbox.width * 0.25)), -max(2, int(hitbox.height * 0.20)))
     return hitbox
 
+def colision_pies(rect):
+    ancho_pies = max(4, int(rect.width * 0.60))
+    alto_pies = max(4, int(rect.height * 0.28))
+    return pygame.Rect(rect.centerx - ancho_pies // 2, rect.bottom - alto_pies, ancho_pies, alto_pies)
+
+def obtener_obstaculos(mapa, ancho, alto):
+    if mapa == 2:
+        return [
+            # Vías de tren y muro superior
+            pygame.Rect(0, 0, ancho, int(alto * 0.112)),
+            # Cancha de fútbol (alambrado perimetral)
+            pygame.Rect(int(ancho * 0.59), int(alto * 0.15), int(ancho * 0.22), int(alto * 0.20)),
+            # Torre de agua y galpón superior derecho
+            pygame.Rect(int(ancho * 0.86), int(alto * 0.08), int(ancho * 0.14), int(alto * 0.17)),
+            # Almacén La Matanza (edificio, contenedor y alambrado inferior derecho)
+            pygame.Rect(int(ancho * 0.89), int(alto * 0.38), int(ancho * 0.11), int(alto * 0.40)),
+            # Canal / zanjón de agua inferior
+            pygame.Rect(0, int(alto * 0.87), ancho, int(alto * 0.13)),
+            # Cartel de Argentina a la izquierda
+            pygame.Rect(int(ancho * 0.11), int(alto * 0.44), int(ancho * 0.10), int(alto * 0.08)),
+            # Valla de chapa inferior izquierda
+            pygame.Rect(int(ancho * 0.08), int(alto * 0.80), int(ancho * 0.10), int(alto * 0.07)),
+            # Estructura / torre pequeña superior izquierda
+            pygame.Rect(int(ancho * 0.23), int(alto * 0.10), int(ancho * 0.04), int(alto * 0.12)),
+        ]
+    else:
+        return [
+            # Franja superior completa de edificios, casas, techos y paredes
+            pygame.Rect(0, 0, ancho, int(alto * 0.345)),
+            # Casa y paredón esquina inferior izquierda
+            pygame.Rect(0, int(alto * 0.54), int(ancho * 0.17), int(alto * 0.46)),
+            # Árbol y valla izquierda media
+            pygame.Rect(0, int(alto * 0.28), int(ancho * 0.08), int(alto * 0.22)),
+            # Edificio con tanque de agua en la derecha media
+            pygame.Rect(int(ancho * 0.86), int(alto * 0.46), int(ancho * 0.14), int(alto * 0.30)),
+            # Manzana de casas inferiores derecha
+            pygame.Rect(int(ancho * 0.57), int(alto * 0.76), int(ancho * 0.43), int(alto * 0.24)),
+            # Manzana de casas inferiores izquierda
+            pygame.Rect(int(ancho * 0.17), int(alto * 0.76), int(ancho * 0.26), int(alto * 0.24)),
+            # Fondo del callejón central inferior (portón)
+            pygame.Rect(int(ancho * 0.43), int(alto * 0.94), int(ancho * 0.14), int(alto * 0.06)),
+        ]
+
 def ajustapos(jugdatos, posicion_mc, ancho, alto, mapa):
     rect = jugdatos["rect"]
-    limites = (0.29, 0.72) if mapa == 2 else (0.40, 0.73)
     rect.left = max(0, min(posicion_mc[0], ancho - rect.width))
-    topmin = int(alto * limites[0]) - rect.height
-    topmax = int(alto * limites[1]) - rect.height
-    rect.top = max(topmin, min(posicion_mc[1], topmax))
+    rect.top = max(0, min(posicion_mc[1], alto - rect.height))
+
+    obstaculos = obtener_obstaculos(mapa, ancho, alto)
+    pies = colision_pies(rect)
+    for obs in obstaculos:
+        if pies.colliderect(obs):
+            if obs.top <= 0 or (obs.y < alto * 0.5 and obs.height > alto * 0.2):
+                rect.top = obs.bottom
+            elif obs.bottom >= alto:
+                rect.bottom = obs.top
+            elif obs.left <= 0:
+                rect.left = obs.right
+            elif obs.right >= ancho:
+                rect.right = obs.left
+            pies = colision_pies(rect)
+
     spr = jugdatos["sprs"][jugdatos["dir"]][0]
     jugdatos["hitbox"] = creahit(spr, rect.topleft)
 
 def crearpuerta(ancho, alto):
-    return pygame.Rect(int(ancho * 0.81), int(alto * 0.25), int(ancho * 0.06), int(alto * 0.12))
+    return pygame.Rect(int(ancho * 0.435), int(alto * 0.32), int(ancho * 0.06), int(alto * 0.08))
 
 def cargarmapa2(ancho, alto, escala=1.6):
     img = pygame.image.load("Sprites/mapa2n.jpeg")
@@ -141,15 +196,19 @@ def crearene(ancho, alto, cantidad=1, oleada=1):
     sprataqrojos = {d: [rojospr(img) for img in imgs] for d, imgs in sprataq.items()}
     enemigos = []
     cantidad = max(1, cantidad)
-    minx = min(int(ancho * 0.22), max(0, ancho - wjug))
-    maxx = max(minx, int(ancho * 0.94) - wjug)
-    miny = min(int(alto * 0.30), max(0, alto - hjug))
-    maxy = max(miny, int(alto * 0.72) - hjug)
+    minx = min(int(ancho * 0.12), max(0, ancho - wjug))
+    maxx = max(minx, int(ancho * 0.88) - wjug)
+    miny = min(int(alto * 0.16), max(0, alto - hjug))
+    maxy = max(miny, int(alto * 0.82) - hjug)
     espacio = max(12, int(wjug * 0.65))
+    obstaculos = obtener_obstaculos(2, ancho, alto)
     for _ in range(cantidad):
         rect = sprs["abajo"][0].get_rect()
         for intento in range(40):
             rect.topleft = (random.randint(minx, maxx), random.randint(miny, maxy))
+            pies_ene = colision_pies(rect)
+            if any(pies_ene.colliderect(obs) for obs in obstaculos):
+                continue
             if all(not rect.inflate(espacio, espacio).colliderect(otro["rect"]) for otro in enemigos):
                 break
         enemigos.append({
@@ -249,7 +308,7 @@ def crearproyene(enemigo, jugdatos):
     alcance = max(tam, int(hitbox.height * 0.85))
     return {"rect": proy, "dx": movx, "dy": movy, "alcance": alcance, "recorrido": 0, "lado": "enemigo"}
 
-def actualizaene(enemigos, jugdatos, proys):
+def actualizaene(enemigos, jugdatos, proys, obstaculos=None):
     ahora = pygame.time.get_ticks()
     for enemigo in enemigos:
         if enemigo["vida"] <= 0:
@@ -276,7 +335,23 @@ def actualizaene(enemigos, jugdatos, proys):
             paso = min(enemigo["vel"], dist - alcance)
             movx = round(dx / dist * paso)
             movy = round(dy / dist * paso)
-            enemigo["rect"].move_ip(movx, movy)
+            if obstaculos:
+                if movx != 0:
+                    enemigo["rect"].x += movx
+                    pies_e = colision_pies(enemigo["rect"])
+                    for obs in obstaculos:
+                        if pies_e.colliderect(obs):
+                            enemigo["rect"].x -= movx
+                            break
+                if movy != 0:
+                    enemigo["rect"].y += movy
+                    pies_e = colision_pies(enemigo["rect"])
+                    for obs in obstaculos:
+                        if pies_e.colliderect(obs):
+                            enemigo["rect"].y -= movy
+                            break
+            else:
+                enemigo["rect"].move_ip(movx, movy)
             if ahora - enemigo["ultmov"] >= 140:
                 enemigo["frame"] = (enemigo["frame"] + 1) % 3
                 enemigo["ultmov"] = ahora
@@ -639,43 +714,72 @@ def crearjugador(ancho, alto):
     }
     return jugdatos
 
-def moverjugador(jugdatos, teclas, ancho, alto, limites=(0.40, 0.73)):
+def moverjugador(jugdatos, teclas, ancho, alto, mapa=1, obstaculos=None):
     if jugdatos["ataq"]:
         return
+
+    if isinstance(mapa, (tuple, list)):
+        mapa = 2 if (ancho > 2000 or alto > 1200 or mapa == (0.29, 0.72)) else 1
+
+    if obstaculos is None:
+        obstaculos = obtener_obstaculos(mapa, ancho, alto)
 
     rect = jugdatos["rect"]
     vel = jugdatos["vel"]
     mov = False
 
+    dx = 0
+    dy = 0
+
     if teclas[pygame.K_w] or teclas[pygame.K_UP]:
-        rect.y -= vel
+        dy -= vel
         jugdatos["dir"] = "arriba"
         mov = True
     elif teclas[pygame.K_s] or teclas[pygame.K_DOWN]:
-        rect.y += vel
+        dy += vel
         jugdatos["dir"] = "abajo"
         mov = True
 
     if teclas[pygame.K_a] or teclas[pygame.K_LEFT]:
-        rect.x -= vel
+        dx -= vel
         jugdatos["dir"] = "izquierda"
         mov = True
     elif teclas[pygame.K_d] or teclas[pygame.K_RIGHT]:
-        rect.x += vel
+        dx += vel
         jugdatos["dir"] = "derecha"
         mov = True
 
-    limitesuperior = int(alto * limites[0])
-    limiteinferior = int(alto * limites[1])
+    # Movimiento en eje X con colisiones y deslizamiento
+    if dx != 0:
+        rect.x += dx
+        if rect.left < 0:
+            rect.left = 0
+        elif rect.right > ancho:
+            rect.right = ancho
+        pies = colision_pies(rect)
+        for obs in obstaculos:
+            if pies.colliderect(obs):
+                if dx > 0:
+                    rect.right -= (pies.right - obs.left)
+                else:
+                    rect.left += (obs.right - pies.left)
+                pies = colision_pies(rect)
 
-    if rect.bottom < limitesuperior:
-        rect.bottom = limitesuperior
-    if rect.bottom > limiteinferior:
-        rect.bottom = limiteinferior
-    if rect.left < 0:
-        rect.left = 0
-    if rect.right > ancho:
-        rect.right = ancho
+    # Movimiento en eje Y con colisiones y deslizamiento
+    if dy != 0:
+        rect.y += dy
+        if rect.top < 0:
+            rect.top = 0
+        elif rect.bottom > alto:
+            rect.bottom = alto
+        pies = colision_pies(rect)
+        for obs in obstaculos:
+            if pies.colliderect(obs):
+                if dy > 0:
+                    rect.bottom -= (pies.bottom - obs.top)
+                else:
+                    rect.top += (obs.bottom - pies.top)
+                pies = colision_pies(rect)
 
     if jugdatos["ataq"]:
         spr = jugdatos["sprataq"][jugdatos["dirataq"]][jugdatos["fraataq"]]
