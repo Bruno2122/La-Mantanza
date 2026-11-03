@@ -24,6 +24,10 @@ botones = fn.btnlista(anchopanel, alto)
 
 mapagraf = fn.cargarmapa(ancho, alto)
 mapagraf2 = fn.cargarmapa2(ancho, alto)
+ancho_mapa2 = mapagraf2.get_width()
+alto_mapa2 = mapagraf2.get_height()
+cam_x = 0
+cam_y = 0
 andy00, andy01, andy02, andy03 = fn.cargabazar(ancho, alto)
 sprites_intro = [
     pygame.image.load(f"Sprites/Mc/Inicio/intro{indice:02d}.png").convert_alpha()
@@ -51,7 +55,7 @@ jugdatos["pesos"] = pesos
 fn.ajustapos(jugdatos, posicion_mc, ancho, alto, mapa)
 vidas = fn.cargarvidas(alto)
 bfuentetitulo, bfontederrota, botonesderrota = fn.bderrota(ancho, alto)
-enemigos = fn.crearene(ancho, alto, min(oleada + 2, 20), oleada) if mapa == 2 else []
+enemigos = fn.crearene(ancho_mapa2, alto_mapa2, min(oleada + 2, 20), oleada) if mapa == 2 else []
 proys = []
 rect_pancho_hud = None
 reloj = pygame.time.Clock()
@@ -134,7 +138,7 @@ while jugando:
                             jugdatos["pesos"] = pesos
                             fn.ajustapos(jugdatos, posicion_mc, ancho, alto, mapa)
                             estado = "juego" if mapa == 1 else "continuara" if mapa == 2 else "bazar"
-                            enemigos = fn.crearene(ancho, alto, min(oleada + 2, 20), oleada) if mapa == 2 else []
+                            enemigos = fn.crearene(ancho_mapa2, alto_mapa2, min(oleada + 2, 20), oleada) if mapa == 2 else []
                             proys = []
                             transicion = {"estado": "andy01" if mapa == "bazar" else "ninguno", "inicio": pygame.time.get_ticks()}
                             mapagraf = fn.cargarmapa(ancho, alto)
@@ -218,15 +222,16 @@ while jugando:
                 elif fn.iniciarataq(jugdatos, mouse):
                     proys.append(fn.crearproy(jugdatos))
             elif estado == "continuara":
+                mouse_mundo = (mouse[0] + cam_x, mouse[1] + cam_y)
                 if pistola:
                     if balas > 0:
-                        proy = fn.crearproypistola(jugdatos, mouse)
+                        proy = fn.crearproypistola(jugdatos, mouse_mundo)
                         if proy is not None:
                             proys.append(proy)
                             balas -= 1
                             if balas == 0:
                                 recarga_hasta = pygame.time.get_ticks() + 2000
-                elif fn.iniciarataq(jugdatos, mouse):
+                elif fn.iniciarataq(jugdatos, mouse_mundo):
                     proys.append(fn.crearproy(jugdatos))
             elif estado == "derrota":
                 for b in botonesderrota:
@@ -291,7 +296,7 @@ while jugando:
         elif jugdatos["rect"].right >= ancho:
             estado = "continuara"
             mapa = 2
-            enemigos = fn.crearene(ancho, alto, min(oleada + 2, 20), oleada)
+            enemigos = fn.crearene(ancho_mapa2, alto_mapa2, min(oleada + 2, 20), oleada)
             proys = []
             jugdatos["rect"].left = 0
         else:
@@ -348,11 +353,15 @@ while jugando:
                 pantalla.blit(texto_mensaje, texto_mensaje.get_rect(center=(int(ancho * 0.50), int(alto * 0.86))))
     elif estado == "continuara":
         fn.actualizarataq(jugdatos)
-        fn.moverjugador(jugdatos, teclas, ancho, alto, (0.29, 0.72))
+        fn.moverjugador(jugdatos, teclas, ancho_mapa2, alto_mapa2, (0.29, 0.72))
         fn.actualizaene(enemigos, jugdatos, proys)
-        fn.moverproy(proys, enemigos, ancho, alto, jugdatos)
+        fn.moverproy(proys, enemigos, ancho_mapa2, alto_mapa2, jugdatos)
+
+        cam_x = max(0, min(jugdatos["rect"].centerx - ancho // 2, ancho_mapa2 - ancho))
+        cam_y = max(0, min(jugdatos["rect"].centery - alto // 2, alto_mapa2 - alto))
+
         # La siguiente oleada empieza al cruzar mapa 1 y regresar al mapa 2.
-        if jugdatos["rect"].right >= ancho and len([e for e in enemigos if e["vida"] > 0]) == 0:
+        if jugdatos["rect"].right >= ancho_mapa2 and len([e for e in enemigos if e["vida"] > 0]) == 0:
             oleada_completada = oleada >= 20
             if oleada < 20:
                 oleada += 1
@@ -365,9 +374,9 @@ while jugando:
             fn.ajustapos(jugdatos, jugdatos["rect"].topleft, ancho, alto, mapa)
         elif jugdatos["vida"] <= 0:
             estado = "derrota"
-            fn.dibujarperdida(pantalla, jugdatos, mapagraf2, bfuentetitulo, bfontederrota, botonesderrota, mouse)
+            fn.dibujarperdida(pantalla, jugdatos, mapagraf2, bfuentetitulo, bfontederrota, botonesderrota, mouse, camara=(cam_x, cam_y))
         else:
-            fn.dibujarjuego(pantalla, mapagraf2, jugdatos, vidas, enemigos, proys=proys)
+            fn.dibujarjuego(pantalla, mapagraf2, jugdatos, vidas, enemigos, proys=proys, camara=(cam_x, cam_y))
             rect_pancho_hud = fn.dibujarrecursos(pantalla, iconos_recursos, pesos, panchos, balas if pistola else None, BALAS_MAXIMAS)
             fn.dibujaroleada(pantalla, oleada)
             if pygame.time.get_ticks() < mensaje_pancho_hasta:
@@ -375,7 +384,8 @@ while jugando:
                 pantalla.blit(texto_uso, texto_uso.get_rect(topright=(ancho - int(alto * 0.02), rect_pancho_hud.bottom + 4)))
     elif estado == "derrota":
         mapaderrota = mapagraf if mapa == 1 else mapagraf2
-        fn.dibujarperdida(pantalla, jugdatos, mapaderrota, bfuentetitulo, bfontederrota, botonesderrota, mouse)
+        cam_derrota = (cam_x, cam_y) if mapa == 2 else (0, 0)
+        fn.dibujarperdida(pantalla, jugdatos, mapaderrota, bfuentetitulo, bfontederrota, botonesderrota, mouse, camara=cam_derrota)
     elif estado == "victoria":
         fn.dibujarjuego(pantalla, mapagraf, jugdatos, vidas, [], proys=proys)
         capa = pygame.Surface(pantalla.get_size(), pygame.SRCALPHA)

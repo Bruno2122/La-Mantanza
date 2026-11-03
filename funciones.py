@@ -73,11 +73,13 @@ def ajustapos(jugdatos, posicion_mc, ancho, alto, mapa):
     jugdatos["hitbox"] = creahit(spr, rect.topleft)
 
 def crearpuerta(ancho, alto):
-    return pygame.Rect(int(ancho * 0.87), int(alto * 0.29), int(ancho * 0.05), int(alto * 0.08))
+    return pygame.Rect(int(ancho * 0.81), int(alto * 0.25), int(ancho * 0.06), int(alto * 0.12))
 
-def cargarmapa2(ancho, alto):
-    img = pygame.image.load("Sprites/mapa2.png")
-    return pygame.transform.scale(img, (ancho, alto)).convert()
+def cargarmapa2(ancho, alto, escala=1.6):
+    img = pygame.image.load("Sprites/mapa2n.jpeg")
+    w = int(ancho * escala)
+    h = int(alto * escala)
+    return pygame.transform.scale(img, (w, h)).convert()
 
 def cargarvidas(alto):
     vidas = []
@@ -359,8 +361,8 @@ def bderrota(ancho, alto):
         {"texto": "MENU", "rect": pygame.Rect(xboton, int(alto * 0.68), anchoboton, altoboton), "accion": "menu"}
     ]
 
-def dibujarperdida(pantalla, jugdatos, mapagraf, fuentetitulo, fuente, botones, mouse):
-    dibujarjuego(pantalla, mapagraf, jugdatos, [], [], False)
+def dibujarperdida(pantalla, jugdatos, mapagraf, fuentetitulo, fuente, botones, mouse, camara=(0, 0)):
+    dibujarjuego(pantalla, mapagraf, jugdatos, [], [], False, camara=camara)
 
     capa = pygame.Surface(pantalla.get_size(), pygame.SRCALPHA)
     capa.fill((180, 0, 0, 77))
@@ -467,7 +469,7 @@ def dibujar(pantalla, fondosurf, panelizq, panelder, anchopanel, t1, t2, rect1, 
         pantalla.blit(txtsurf, txtrect)
 
 def cargarmapa(ancho, alto):
-    ruta = "F/Mapa.png" if os.path.exists("F/Mapa.png") else "Mapa.png"
+    ruta = "Sprites/mapa1n.jpeg" if os.path.exists("Sprites/mapa1n.jpeg") else ("F/Mapa.png" if os.path.exists("F/Mapa.png") else "Mapa.png")
     img = pygame.image.load(ruta)
     return pygame.transform.scale(img, (ancho, alto)).convert()
 
@@ -688,8 +690,9 @@ def moverjugador(jugdatos, teclas, ancho, alto, limites=(0.40, 0.73)):
     else:
         jugdatos["frame"] = 1.0
 
-def dibujarjuego(pantalla, mapagraf, jugdatos, vidas, objetivos, mostrarvida=True, proys=None):
-    pantalla.blit(mapagraf, (0, 0))
+def dibujarjuego(pantalla, mapagraf, jugdatos, vidas, objetivos, mostrarvida=True, proys=None, camara=(0, 0)):
+    cx, cy = camara
+    pantalla.blit(mapagraf, (-cx, -cy))
     for objetivo in objetivos:
         if isinstance(objetivo, dict):
             if objetivo["ataq"]:
@@ -700,9 +703,10 @@ def dibujarjuego(pantalla, mapagraf, jugdatos, vidas, objetivos, mostrarvida=Tru
                 spr = objetivo["sprs"][objetivo["dir"]][int(objetivo["frame"])]
                 if pygame.time.get_ticks() < objetivo["golpe_hasta"]:
                     spr = objetivo["sprrojos"][objetivo["dir"]][int(objetivo["frame"])]
-            pantalla.blit(spr, objetivo["rect"])
+            pantalla.blit(spr, (objetivo["rect"].x - cx, objetivo["rect"].y - cy))
         else:
-            pygame.draw.rect(pantalla, (120, 55, 35), objetivo, border_radius=6)
+            rect_dibujo = objetivo.move(-cx, -cy)
+            pygame.draw.rect(pantalla, (120, 55, 35), rect_dibujo, border_radius=6)
     if jugdatos["ataq"]:
         if pygame.time.get_ticks() < jugdatos["golpe_hasta"]:
             spr = jugdatos["sprataqrojos"][jugdatos["dirataq"]][jugdatos["fraataq"]]
@@ -716,10 +720,11 @@ def dibujarjuego(pantalla, mapagraf, jugdatos, vidas, objetivos, mostrarvida=Tru
             spr = jugdatos["sprrojos"][d][idx]
         else:
             spr = jugdatos["sprs"][d][idx]
-    pantalla.blit(spr, jugdatos["rect"].topleft)
+    pantalla.blit(spr, (jugdatos["rect"].x - cx, jugdatos["rect"].y - cy))
     for proy in proys or []:
         color = (255, 230, 90) if proy.get("lado") == "pistola" else (235, 85, 75) if proy.get("lado") == "enemigo" else (250, 250, 150)
-        pygame.draw.ellipse(pantalla, color, proy["rect"])
-        pygame.draw.ellipse(pantalla, (35, 30, 20), proy["rect"], 1)
+        rect_proy = proy["rect"].move(-cx, -cy)
+        pygame.draw.ellipse(pantalla, color, rect_proy)
+        pygame.draw.ellipse(pantalla, (35, 30, 20), rect_proy, 1)
     if mostrarvida:
         dibujarvida(pantalla, vidas, jugdatos)
