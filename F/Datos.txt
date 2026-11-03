@@ -1,8 +1,8 @@
-vida=3
+vida=5
 puntos=0
-oleada=4
-pesos=370
-panchos=10
+oleada=9
+pesos=1420
+panchos=53
 pistola=1
-posicion_mc=684,448
+posicion_mc=1492,367
 mapa=1

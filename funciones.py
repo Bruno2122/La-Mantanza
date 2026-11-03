@@ -63,76 +63,50 @@ def creahit(spr, pos):
     return hitbox
 
 def colision_pies(rect):
-    ancho_pies = max(4, int(rect.width * 0.60))
-    alto_pies = max(4, int(rect.height * 0.28))
+    ancho_pies = max(4, int(rect.width * 0.38))
+    alto_pies = max(4, int(rect.height * 0.16))
     return pygame.Rect(rect.centerx - ancho_pies // 2, rect.bottom - alto_pies, ancho_pies, alto_pies)
 
 def obtener_obstaculos(mapa, ancho, alto):
     if mapa == 2:
         return [
             # Vías de tren y muro superior
-            pygame.Rect(0, 0, ancho, int(alto * 0.110)),
+            pygame.Rect(0, 0, ancho, int(alto * 0.095)),
             # Cancha de fútbol (alambrado perimetral)
-            pygame.Rect(int(ancho * 0.593), int(alto * 0.145), int(ancho * 0.218), int(alto * 0.205)),
+            pygame.Rect(int(ancho * 0.595), int(alto * 0.148), int(ancho * 0.215), int(alto * 0.200)),
             # Torre de agua y galpón superior derecho
-            pygame.Rect(int(ancho * 0.860), int(alto * 0.075), int(ancho * 0.140), int(alto * 0.170)),
+            pygame.Rect(int(ancho * 0.870), int(alto * 0.070), int(ancho * 0.130), int(alto * 0.170)),
             # Almacén La Matanza (edificio, contenedor y alambrado inferior derecho)
-            pygame.Rect(int(ancho * 0.890), int(alto * 0.375), int(ancho * 0.110), int(alto * 0.405)),
+            pygame.Rect(int(ancho * 0.895), int(alto * 0.380), int(ancho * 0.105), int(alto * 0.400)),
             # Canal / zanjón de agua inferior
-            pygame.Rect(0, int(alto * 0.875), ancho, int(alto * 0.125)),
+            pygame.Rect(0, int(alto * 0.890), ancho, int(alto * 0.110)),
             # Cartel de Argentina a la izquierda
-            pygame.Rect(int(ancho * 0.110), int(alto * 0.440), int(ancho * 0.103), int(alto * 0.080)),
+            pygame.Rect(int(ancho * 0.112), int(alto * 0.445), int(ancho * 0.100), int(alto * 0.075)),
             # Valla de chapa inferior izquierda
-            pygame.Rect(int(ancho * 0.080), int(alto * 0.800), int(ancho * 0.100), int(alto * 0.070)),
-            # Estructura / torre pequeña superior izquierda
-            pygame.Rect(int(ancho * 0.235), int(alto * 0.100), int(ancho * 0.035), int(alto * 0.120)),
-            # Refugio / parada de colectivo a la izquierda
-            pygame.Rect(int(ancho * 0.090), int(alto * 0.285), int(ancho * 0.030), int(alto * 0.045)),
-            # Tendedero de ropa abajo centro
-            pygame.Rect(int(ancho * 0.490), int(alto * 0.700), int(ancho * 0.060), int(alto * 0.050)),
-            # Canchita de cemento / banco roto al sur de la cancha
-            pygame.Rect(int(ancho * 0.615), int(alto * 0.425), int(ancho * 0.085), int(alto * 0.115)),
-
-            # --- ÁRBOLES (colisión SOLO en la base/tronco; arbustos ignorados) ---
-            # Árbol central solitario
-            pygame.Rect(int(ancho * 0.446), int(alto * 0.475), int(ancho * 0.022), int(alto * 0.020)),
-            # Árbol medio-izquierda
-            pygame.Rect(int(ancho * 0.278), int(alto * 0.370), int(ancho * 0.025), int(alto * 0.020)),
-            # Árbol superior-izquierda
-            pygame.Rect(int(ancho * 0.171), int(alto * 0.260), int(ancho * 0.025), int(alto * 0.020)),
-            # Árbol junto al cartel Argentina
-            pygame.Rect(int(ancho * 0.210), int(alto * 0.395), int(ancho * 0.025), int(alto * 0.020)),
-            # Árbol abajo izquierda
-            pygame.Rect(int(ancho * 0.177), int(alto * 0.745), int(ancho * 0.022), int(alto * 0.020)),
-            # Árbol abajo centro-izquierda
-            pygame.Rect(int(ancho * 0.340), int(alto * 0.815), int(ancho * 0.025), int(alto * 0.020)),
-            # Árbol junto a parada de colectivo
-            pygame.Rect(int(ancho * 0.089), int(alto * 0.130), int(ancho * 0.022), int(alto * 0.020)),
-            # Árbol entre cartel y torre de agua izquierda
-            pygame.Rect(int(ancho * 0.309), int(alto * 0.095), int(ancho * 0.022), int(alto * 0.020)),
-            # Árboles al este del centro
-            pygame.Rect(int(ancho * 0.537), int(alto * 0.585), int(ancho * 0.022), int(alto * 0.020)),
-            pygame.Rect(int(ancho * 0.661), int(alto * 0.665), int(ancho * 0.022), int(alto * 0.020)),
-            # Árboles cerca del almacén
-            pygame.Rect(int(ancho * 0.843), int(alto * 0.360), int(ancho * 0.025), int(alto * 0.020)),
-            pygame.Rect(int(ancho * 0.853), int(alto * 0.735), int(ancho * 0.025), int(alto * 0.020)),
+            pygame.Rect(int(ancho * 0.082), int(alto * 0.805), int(ancho * 0.098), int(alto * 0.065)),
+            # Torre pequeña superior izquierda
+            pygame.Rect(int(ancho * 0.238), int(alto * 0.100), int(ancho * 0.030), int(alto * 0.115)),
+            # Árbol central solitario (tronco mínimo)
+            pygame.Rect(int(ancho * 0.450), int(alto * 0.482), int(ancho * 0.015), int(alto * 0.012)),
+            # Árbol medio-izquierda (tronco mínimo)
+            pygame.Rect(int(ancho * 0.283), int(alto * 0.377), int(ancho * 0.015), int(alto * 0.012)),
         ]
     else:
         return [
-            # Franja superior completa de edificios, casas, techos y paredes
-            pygame.Rect(0, 0, ancho, int(alto * 0.345)),
-            # Casa y paredón esquina inferior izquierda
-            pygame.Rect(0, int(alto * 0.54), int(ancho * 0.17), int(alto * 0.46)),
-            # Árbol y valla izquierda media
-            pygame.Rect(0, int(alto * 0.28), int(ancho * 0.08), int(alto * 0.22)),
-            # Edificio con tanque de agua en la derecha media
-            pygame.Rect(int(ancho * 0.86), int(alto * 0.46), int(ancho * 0.14), int(alto * 0.30)),
-            # Manzana de casas inferiores derecha
-            pygame.Rect(int(ancho * 0.57), int(alto * 0.76), int(ancho * 0.43), int(alto * 0.24)),
-            # Manzana de casas inferiores izquierda
-            pygame.Rect(int(ancho * 0.17), int(alto * 0.76), int(ancho * 0.26), int(alto * 0.24)),
-            # Fondo del callejón central inferior (portón)
-            pygame.Rect(int(ancho * 0.43), int(alto * 0.94), int(ancho * 0.14), int(alto * 0.06)),
+            # Hilera superior de locales y paredón (deja toda la vereda libre para caminar)
+            pygame.Rect(0, 0, ancho, int(alto * 0.335)),
+            # Base del árbol izquierdo
+            pygame.Rect(0, int(alto * 0.335), int(ancho * 0.070), int(alto * 0.13)),
+            # Torre de ladrillo esquina inferior izquierda
+            pygame.Rect(0, int(alto * 0.56), int(ancho * 0.05), int(alto * 0.44)),
+            # Casita inferior izquierda
+            pygame.Rect(int(ancho * 0.05), int(alto * 0.70), int(ancho * 0.10), int(alto * 0.30)),
+            # Muro y casas inferiores izquierda (alineado a la base donde toca la tierra)
+            pygame.Rect(int(ancho * 0.15), int(alto * 0.83), int(ancho * 0.275), int(alto * 0.17)),
+            # Muro de ladrillo y casas inferiores derecha (alineado a la base)
+            pygame.Rect(int(ancho * 0.575), int(alto * 0.83), int(ancho * 0.425), int(alto * 0.17)),
+            # Casa gris de la derecha (solo el edificio, dejando el camino libre)
+            pygame.Rect(int(ancho * 0.875), int(alto * 0.56), int(ancho * 0.125), int(alto * 0.27)),
         ]
 
 def ajustapos(jugdatos, posicion_mc, ancho, alto, mapa):
@@ -144,7 +118,7 @@ def ajustapos(jugdatos, posicion_mc, ancho, alto, mapa):
     pies = colision_pies(rect)
     for obs in obstaculos:
         if pies.colliderect(obs):
-            if obs.top <= 0 or (obs.y < alto * 0.5 and obs.height > alto * 0.2):
+            if obs.top <= 0:
                 rect.top = obs.bottom
             elif obs.bottom >= alto:
                 rect.bottom = obs.top
@@ -158,7 +132,7 @@ def ajustapos(jugdatos, posicion_mc, ancho, alto, mapa):
     jugdatos["hitbox"] = creahit(spr, rect.topleft)
 
 def crearpuerta(ancho, alto):
-    return pygame.Rect(int(ancho * 0.435), int(alto * 0.32), int(ancho * 0.06), int(alto * 0.08))
+    return pygame.Rect(int(ancho * 0.435), int(alto * 0.30), int(ancho * 0.06), int(alto * 0.09))
 
 def cargarmapa2(ancho, alto, escala=2.4):
     img = pygame.image.load("Sprites/mapa2n.jpeg")
@@ -715,13 +689,13 @@ def actualizarataq(jugdatos):
         jugdatos["fraataq"] = 0
 
 def crearjugador(ancho, alto):
-    # Escala normal para mapa 1 (Bazar, ciudad)
-    hjug1 = int(alto * 0.125)
+    # Escala para mapa 1 (Bazar, ciudad: 10% más chico que antes)
+    hjug1 = int(alto * 0.1125)
     wjug1 = int(hjug1 * (52 / 96))
     xjug = ancho // 2
     yjug = int(alto * 0.50)
     rectjug = pygame.Rect(xjug, yjug, wjug1, hjug1)
-    vel1 = int(alto * 0.009)
+    vel1 = int(alto * 0.0085)
 
     sprs1 = cargarsprites(wjug1, hjug1)
     sprataq1 = cargarsprataq(wjug1, hjug1)
@@ -817,37 +791,37 @@ def moverjugador(jugdatos, teclas, ancho, alto, mapa=1, obstaculos=None):
         jugdatos["dir"] = "derecha"
         mov = True
 
-    # Movimiento en eje X con colisiones y deslizamiento
+    # Movimiento en eje X con colisiones y deslizamiento pixel-perfect
     if dx != 0:
-        rect.x += dx
-        if rect.left < 0:
-            rect.left = 0
-        elif rect.right > ancho:
-            rect.right = ancho
-        pies = colision_pies(rect)
-        for obs in obstaculos:
-            if pies.colliderect(obs):
-                if dx > 0:
-                    rect.right -= (pies.right - obs.left)
-                else:
-                    rect.left += (obs.right - pies.left)
-                pies = colision_pies(rect)
+        paso_x = 1 if dx > 0 else -1
+        for _ in range(abs(dx)):
+            rect.x += paso_x
+            if rect.left < 0:
+                rect.left = 0
+                break
+            if rect.right > ancho:
+                rect.right = ancho
+                break
+            pies = colision_pies(rect)
+            if any(pies.colliderect(obs) for obs in obstaculos):
+                rect.x -= paso_x
+                break
 
-    # Movimiento en eje Y con colisiones y deslizamiento
+    # Movimiento en eje Y con colisiones y deslizamiento pixel-perfect
     if dy != 0:
-        rect.y += dy
-        if rect.top < 0:
-            rect.top = 0
-        elif rect.bottom > alto:
-            rect.bottom = alto
-        pies = colision_pies(rect)
-        for obs in obstaculos:
-            if pies.colliderect(obs):
-                if dy > 0:
-                    rect.bottom -= (pies.bottom - obs.top)
-                else:
-                    rect.top += (obs.bottom - pies.top)
-                pies = colision_pies(rect)
+        paso_y = 1 if dy > 0 else -1
+        for _ in range(abs(dy)):
+            rect.y += paso_y
+            if rect.top < 0:
+                rect.top = 0
+                break
+            if rect.bottom > alto:
+                rect.bottom = alto
+                break
+            pies = colision_pies(rect)
+            if any(pies.colliderect(obs) for obs in obstaculos):
+                rect.y -= paso_y
+                break
 
     if jugdatos["ataq"]:
         spr = jugdatos["sprataq"][jugdatos["dirataq"]][jugdatos["fraataq"]]

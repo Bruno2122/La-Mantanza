@@ -29,23 +29,22 @@ alto_mapa2 = mapagraf2.get_height()
 cam_x = 0
 cam_y = 0
 andy00, andy01, andy02, andy03 = fn.cargabazar(ancho, alto)
-sprites_intro = [
-    pygame.image.load(f"Sprites/Mc/Inicio/intro{indice:02d}.png").convert_alpha()
-    for indice in range(15)
-]
 mira = fn.cargarmira(alto)
 iconos_recursos = fn.cargariconosrecursos(alto)
-tam_pancho = int(alto * 0.075)
-pancho_tienda = pygame.transform.scale(iconos_recursos["pancho"], (tam_pancho, tam_pancho))
+tam_pancho = int(alto * 0.11)
+pancho_tienda = pygame.transform.smoothscale(iconos_recursos["pancho"], (tam_pancho, tam_pancho))
 fuente_compra = pygame.font.Font(None, max(24, int(alto * 0.035)))
+fuente_compra_chica = pygame.font.Font(None, max(18, int(alto * 0.026)))
 puertabazar = fn.crearpuerta(ancho, alto)
 transicion = {"estado": "ninguno", "inicio": 0}
 mensaje_compra = ""
+carrito_pistola = 0
+carrito_panchos = 0
 mensaje_pancho = ""
 mensaje_pancho_hasta = 0
 PRECIO_PISTOLA = 10
 PRECIO_PANCHO = 5
-BALAS_MAXIMAS = 6
+BALAS_MAXIMAS = 8
 balas = BALAS_MAXIMAS
 recarga_hasta = 0
 vida, puntos, oleada, pesos, panchos, pistola, posicion_mc, mapa = fn.cargardat(ancho, alto)
@@ -62,10 +61,7 @@ enemigos = fn.crearene(ancho_mapa2, alto_mapa2, min(8 + oleada * 3, 40), oleada,
 proys = []
 rect_pancho_hud = None
 reloj = pygame.time.Clock()
-estado = "intro"
-inicio_intro = pygame.time.get_ticks()
-DURACION_ZOOM_INTRO = 900
-DURACION_CUADRO_INTRO = 120
+estado = "menu"
 ultimo_guardado = pygame.time.get_ticks()
 jugando = True
 
@@ -114,6 +110,24 @@ while jugando:
             elif evento.key == pygame.K_BACKSPACE and estado == "bazar" and transicion["estado"] == "andy03":
                 transicion["estado"] = "andy02"
                 transicion["inicio"] = pygame.time.get_ticks()
+                carrito_pistola = 0
+                carrito_panchos = 0
+
+        elif evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 3:
+            mouseventana = evento.pos
+            mouse = (
+                mouseventana[0] * ancho // ventana.get_width(),
+                mouseventana[1] * alto // ventana.get_height()
+            )
+            if estado == "bazar" and transicion["estado"] == "andy03":
+                slot_pistola = pygame.Rect(int(ancho * 0.145), int(alto * 0.210), int(ancho * 0.115), int(alto * 0.175))
+                slot_pancho = pygame.Rect(int(ancho * 0.334), int(alto * 0.210), int(ancho * 0.121), int(alto * 0.178))
+                if slot_pancho.collidepoint(mouse) and carrito_panchos > 0:
+                    carrito_panchos -= 1
+                    mensaje_compra = ""
+                elif slot_pistola.collidepoint(mouse) and carrito_pistola > 0:
+                    carrito_pistola = 0
+                    mensaje_compra = ""
 
         elif evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
             mouseventana = evento.pos
@@ -191,33 +205,49 @@ while jugando:
                         transicion["estado"] = "andy03"
                         transicion["inicio"] = pygame.time.get_ticks()
                         mensaje_compra = ""
+                        carrito_pistola = 0
+                        carrito_panchos = 0
                 elif transicion["estado"] == "andy03":
-                    comprar_pistola = pygame.Rect(int(ancho * 0.70), int(alto * 0.63), int(ancho * 0.17), int(alto * 0.20))
-                    comprar_pancho = pygame.Rect(int(ancho * 0.69), int(alto * 0.31), int(ancho * 0.21), int(alto * 0.23))
+                    slot_pistola = pygame.Rect(int(ancho * 0.145), int(alto * 0.210), int(ancho * 0.115), int(alto * 0.175))
+                    slot_pancho = pygame.Rect(int(ancho * 0.334), int(alto * 0.210), int(ancho * 0.121), int(alto * 0.178))
+                    btn_confirmar = pygame.Rect(int(ancho * 0.713), int(alto * 0.605), int(ancho * 0.145), int(alto * 0.173))
+                    btn_vaciar = pygame.Rect(int(ancho * 0.56), int(alto * 0.65), int(ancho * 0.13), int(alto * 0.08))
                     volver = pygame.Rect(int(ancho * 0.02), int(alto * 0.02), int(ancho * 0.18), int(alto * 0.14))
-                    if comprar_pancho.collidepoint(mouse):
-                        if pesos >= PRECIO_PANCHO:
-                            pesos -= PRECIO_PANCHO
-                            panchos += 1
-                            jugdatos["pesos"] = pesos
-                            mensaje_compra = "Pancho comprado"
-                            fn.guardardat(jugdatos["vida"], puntos, oleada, pesos, panchos, pistola, jugdatos["rect"].topleft, mapa)
-                        else:
-                            mensaje_compra = f"Necesitas {PRECIO_PANCHO} pesos"
-                    elif comprar_pistola.collidepoint(mouse):
+
+                    if slot_pistola.collidepoint(mouse):
                         if pistola:
-                            mensaje_compra = "Ya tienes la pistola"
-                        elif pesos >= PRECIO_PISTOLA:
-                            pesos -= PRECIO_PISTOLA
-                            pistola = True
+                            mensaje_compra = "Ya tienes la pistola (solo 1 vez)"
+                        else:
+                            carrito_pistola = 0 if carrito_pistola else 1
+                            mensaje_compra = ""
+                    elif slot_pancho.collidepoint(mouse):
+                        carrito_panchos += 1
+                        mensaje_compra = ""
+                    elif btn_vaciar.collidepoint(mouse):
+                        carrito_pistola = 0
+                        carrito_panchos = 0
+                        mensaje_compra = "Seleccion vaciada"
+                    elif btn_confirmar.collidepoint(mouse):
+                        costo_total = (PRECIO_PISTOLA if carrito_pistola else 0) + carrito_panchos * PRECIO_PANCHO
+                        if carrito_pistola == 0 and carrito_panchos == 0:
+                            mensaje_compra = "Toca los iconos para agregar items"
+                        elif pesos >= costo_total:
+                            pesos -= costo_total
                             jugdatos["pesos"] = pesos
-                            mensaje_compra = "Pistola comprada"
+                            if carrito_pistola:
+                                pistola = True
+                            panchos += carrito_panchos
+                            carrito_pistola = 0
+                            carrito_panchos = 0
+                            mensaje_compra = "¡Compra confirmada!"
                             fn.guardardat(jugdatos["vida"], puntos, oleada, pesos, panchos, pistola, jugdatos["rect"].topleft, mapa)
                         else:
-                            mensaje_compra = f"Necesitas {PRECIO_PISTOLA} pesos"
+                            mensaje_compra = f"Necesitas {costo_total} pesos (tienes {pesos})"
                     elif volver.collidepoint(mouse):
                         transicion["estado"] = "andy02"
                         transicion["inicio"] = pygame.time.get_ticks()
+                        carrito_pistola = 0
+                        carrito_panchos = 0
             elif estado == "juego" and transicion["estado"] == "ninguno":
                 if pistola:
                     if balas > 0:
@@ -264,33 +294,7 @@ while jugando:
                         elif b["accion"] == "menu":
                             estado = "menu"
 
-    if estado == "intro":
-        tiempo_intro = pygame.time.get_ticks() - inicio_intro
-        duracion_total = DURACION_ZOOM_INTRO + (len(sprites_intro) - 1) * DURACION_CUADRO_INTRO
-
-        if tiempo_intro >= duracion_total:
-            estado = "menu"
-            fondosurf = fn.framevideo(video, ancho, alto)
-            fn.dibujar(pantalla, fondosurf, panelizq, panelder, anchopanel, t1, t2, rect1, rect2, botones, fuentebtn, mouse)
-        else:
-            pantalla.fill((0, 0, 0))
-            if tiempo_intro < DURACION_ZOOM_INTRO:
-                progreso = tiempo_intro / DURACION_ZOOM_INTRO
-                progreso = 1 - (1 - progreso) ** 3
-                indice = 0
-                altura_personaje = int(alto * (0.16 + 0.42 * progreso))
-            else:
-                indice = min(
-                    len(sprites_intro) - 1,
-                    1 + (tiempo_intro - DURACION_ZOOM_INTRO) // DURACION_CUADRO_INTRO
-                )
-                altura_personaje = int(alto * 0.58)
-
-            sprite = sprites_intro[indice]
-            ancho_personaje = int(altura_personaje * sprite.get_width() / sprite.get_height())
-            sprite = pygame.transform.smoothscale(sprite, (ancho_personaje, altura_personaje))
-            pantalla.blit(sprite, sprite.get_rect(center=(ancho // 2, alto // 2)))
-    elif estado == "menu":
+    if estado == "menu":
         fondosurf = fn.framevideo(video, ancho, alto)
         fn.dibujar(pantalla, fondosurf, panelizq, panelder, anchopanel, t1, t2, rect1, rect2, botones, fuentebtn, mouse)
     elif estado == "juego":
@@ -357,17 +361,82 @@ while jugando:
             pantalla.blit(andy02, (0, 0))
         elif transicion["estado"] == "andy03":
             pantalla.blit(andy03, (0, 0))
-            texto_saldo = fuente_compra.render(f"Pesos: {pesos}", True, (255, 255, 255))
-            pantalla.blit(texto_saldo, texto_saldo.get_rect(center=(int(ancho * 0.80), int(alto * 0.22))))
-            pantalla.blit(pancho_tienda, pancho_tienda.get_rect(center=(int(ancho * 0.80), int(alto * 0.39))))
-            texto_pancho = fuente_compra.render(f"PANCHO - {PRECIO_PANCHO} PESOS", True, (255, 255, 255))
-            pantalla.blit(texto_pancho, texto_pancho.get_rect(center=(int(ancho * 0.80), int(alto * 0.48))))
-            texto_pistola = fuente_compra.render(f"PISTOLA - {PRECIO_PISTOLA} PESOS", True, (255, 255, 255))
-            pantalla.blit(texto_pistola, texto_pistola.get_rect(center=(int(ancho * 0.79), int(alto * 0.60))))
+
+            slot_pistola = pygame.Rect(int(ancho * 0.145), int(alto * 0.210), int(ancho * 0.115), int(alto * 0.175))
+            slot_pancho = pygame.Rect(int(ancho * 0.334), int(alto * 0.210), int(ancho * 0.121), int(alto * 0.178))
+            btn_confirmar = pygame.Rect(int(ancho * 0.713), int(alto * 0.605), int(ancho * 0.145), int(alto * 0.173))
+            btn_vaciar = pygame.Rect(int(ancho * 0.56), int(alto * 0.65), int(ancho * 0.13), int(alto * 0.08))
+
+            # Dibujar icono del pancho en la segunda casilla de la tienda
+            pantalla.blit(pancho_tienda, pancho_tienda.get_rect(center=slot_pancho.center))
+
+            # Bordes interactivos / selección en las casillas
+            if pistola:
+                overlay_comprada = pygame.Surface(slot_pistola.size, pygame.SRCALPHA)
+                overlay_comprada.fill((0, 0, 0, 150))
+                pantalla.blit(overlay_comprada, slot_pistola.topleft)
+                pygame.draw.rect(pantalla, (120, 120, 120), slot_pistola, 3, border_radius=6)
+                txt_comp = fuente_compra_chica.render("COMPRADA", True, (255, 200, 100))
+                pantalla.blit(txt_comp, txt_comp.get_rect(center=slot_pistola.center))
+            elif carrito_pistola > 0:
+                pygame.draw.rect(pantalla, (80, 255, 100), slot_pistola, 4, border_radius=6)
+                badge_p = fuente_compra.render("x1", True, (80, 255, 100))
+                pantalla.blit(badge_p, badge_p.get_rect(bottomright=(slot_pistola.right - 6, slot_pistola.bottom - 4)))
+            elif slot_pistola.collidepoint(mouse):
+                pygame.draw.rect(pantalla, (255, 255, 140), slot_pistola, 3, border_radius=6)
+
+            if carrito_panchos > 0:
+                pygame.draw.rect(pantalla, (80, 255, 100), slot_pancho, 4, border_radius=6)
+                badge_pan = fuente_compra.render(f"x{carrito_panchos}", True, (80, 255, 100))
+                pantalla.blit(badge_pan, badge_pan.get_rect(bottomright=(slot_pancho.right - 6, slot_pancho.bottom - 4)))
+            elif slot_pancho.collidepoint(mouse):
+                pygame.draw.rect(pantalla, (255, 255, 140), slot_pancho, 3, border_radius=6)
+
+            # Precios y etiquetas debajo de cada casilla
+            lbl_pistola = fuente_compra_chica.render("PISTOLA (Única)", True, (255, 255, 255))
+            precio_pistola_txt = fuente_compra_chica.render("AGOTADO" if pistola else f"${PRECIO_PISTOLA}", True, (200, 200, 200) if pistola else (255, 230, 100))
+            pantalla.blit(lbl_pistola, lbl_pistola.get_rect(center=(slot_pistola.centerx, slot_pistola.bottom + int(alto * 0.03))))
+            pantalla.blit(precio_pistola_txt, precio_pistola_txt.get_rect(center=(slot_pistola.centerx, slot_pistola.bottom + int(alto * 0.065))))
+
+            lbl_pancho = fuente_compra_chica.render("PANCHO (+1 Vida)", True, (255, 255, 255))
+            precio_pancho_txt = fuente_compra_chica.render(f"${PRECIO_PANCHO} c/u", True, (255, 230, 100))
+            ayuda_pancho = fuente_compra_chica.render("(Clic izq +1 / der -1)", True, (210, 210, 210))
+            pantalla.blit(lbl_pancho, lbl_pancho.get_rect(center=(slot_pancho.centerx, slot_pancho.bottom + int(alto * 0.03))))
+            pantalla.blit(precio_pancho_txt, precio_pancho_txt.get_rect(center=(slot_pancho.centerx, slot_pancho.bottom + int(alto * 0.065))))
+            pantalla.blit(ayuda_pancho, ayuda_pancho.get_rect(center=(slot_pancho.centerx, slot_pancho.bottom + int(alto * 0.098))))
+
+            # Panel de resumen de compra y saldo a la derecha
+            costo_total = carrito_pistola * PRECIO_PISTOLA + carrito_panchos * PRECIO_PANCHO
+            texto_saldo = fuente_compra.render(f"Tus Pesos: ${pesos}", True, (255, 255, 255))
+            pantalla.blit(texto_saldo, texto_saldo.get_rect(center=(int(ancho * 0.75), int(alto * 0.24))))
+
+            resumen_items = f"Seleccionado: Pistola x{carrito_pistola} | Panchos x{carrito_panchos}"
+            txt_resumen = fuente_compra_chica.render(resumen_items, True, (230, 230, 230))
+            pantalla.blit(txt_resumen, txt_resumen.get_rect(center=(int(ancho * 0.72), int(alto * 0.46))))
+
+            color_total = (255, 110, 110) if costo_total > pesos else (120, 255, 140)
+            txt_total = fuente_compra.render(f"Total a confirmar: ${costo_total}", True, color_total)
+            pantalla.blit(txt_total, txt_total.get_rect(center=(int(ancho * 0.72), int(alto * 0.53))))
+
+            # Resaltar botón COMPRAR al pasar el mouse o tener items
+            if btn_confirmar.collidepoint(mouse):
+                pygame.draw.rect(pantalla, (255, 255, 255), btn_confirmar, 3, border_radius=10)
+
+            # Botón para vaciar selección si hay items acumulados
+            if carrito_pistola > 0 or carrito_panchos > 0:
+                color_vaciar = (170, 60, 60) if btn_vaciar.collidepoint(mouse) else (120, 40, 40)
+                pygame.draw.rect(pantalla, color_vaciar, btn_vaciar, border_radius=8)
+                pygame.draw.rect(pantalla, (255, 200, 200), btn_vaciar, 2, border_radius=8)
+                txt_vaciar = fuente_compra_chica.render("VACIAR", True, (255, 255, 255))
+                pantalla.blit(txt_vaciar, txt_vaciar.get_rect(center=btn_vaciar.center))
+
             if mensaje_compra:
-                color_mensaje = (255, 120, 120) if mensaje_compra.startswith("Necesitas") else (130, 255, 130)
+                es_error = mensaje_compra.startswith("Necesitas") or mensaje_compra.startswith("Selecciona") or mensaje_compra.startswith("Ya ")
+                color_mensaje = (255, 120, 120) if es_error else (130, 255, 130)
                 texto_mensaje = fuente_compra.render(mensaje_compra, True, color_mensaje)
-                pantalla.blit(texto_mensaje, texto_mensaje.get_rect(center=(int(ancho * 0.50), int(alto * 0.86))))
+                rect_msg = texto_mensaje.get_rect(center=(int(ancho * 0.50), int(alto * 0.85)))
+                pygame.draw.rect(pantalla, (0, 0, 0, 190), rect_msg.inflate(20, 10), border_radius=6)
+                pantalla.blit(texto_mensaje, rect_msg)
     elif estado == "continuara":
         fn.actualizarataq(jugdatos)
         obstaculos_m2 = fn.obtener_obstaculos(2, ancho_mapa2, alto_mapa2)
