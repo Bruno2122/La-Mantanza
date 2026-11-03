@@ -8,10 +8,12 @@ _fuentes_recursos = {}
 
 def cargardat(ancho, alto):
     vida = 5
+    escudo = 0
     puntos = 0
     oleada = 1
     pesos = 0
     panchos = 0
+    speeds = 0
     pistola = False
     posicion_mc = (ancho // 2, int(alto * 0.50))
     mapa = 1
@@ -26,6 +28,8 @@ def cargardat(ancho, alto):
                 try:
                     if clave == "vida":
                         vida = max(0, min(5, int(valor)))
+                    elif clave == "escudo":
+                        escudo = max(0, min(3, int(valor)))
                     elif clave == "puntos":
                         puntos = max(0, int(valor))
                     elif clave == "oleada":
@@ -34,6 +38,8 @@ def cargardat(ancho, alto):
                         pesos = max(0, int(valor))
                     elif clave == "panchos":
                         panchos = max(0, int(valor))
+                    elif clave == "speeds":
+                        speeds = max(0, int(valor))
                     elif clave == "pistola":
                         pistola = valor == "1"
                     elif clave == "posicion_mc":
@@ -44,15 +50,17 @@ def cargardat(ancho, alto):
                 except ValueError:
                     continue
 
-    return vida, puntos, oleada, pesos, panchos, pistola, posicion_mc, mapa
+    return vida, escudo, puntos, oleada, pesos, panchos, speeds, pistola, posicion_mc, mapa
 
-def guardardat(vida, puntos, oleada, pesos, panchos, pistola, posicion_mc, mapa):
+def guardardat(vida, puntos, oleada, pesos, panchos, pistola, posicion_mc, mapa, escudo=0, speeds=0):
     with open("F/Datos.txt", "w", encoding="utf-8") as archivo:
         archivo.write(f"vida={vida}\n")
+        archivo.write(f"escudo={escudo}\n")
         archivo.write(f"puntos={puntos}\n")
         archivo.write(f"oleada={oleada}\n")
         archivo.write(f"pesos={pesos}\n")
         archivo.write(f"panchos={panchos}\n")
+        archivo.write(f"speeds={speeds}\n")
         archivo.write(f"pistola={int(pistola)}\n")
         archivo.write(f"posicion_mc={posicion_mc[0]},{posicion_mc[1]}\n")
         archivo.write(f"mapa={mapa}\n")
@@ -140,6 +148,32 @@ def cargarmapa2(ancho, alto, escala=2.4):
     h = int(alto * escala)
     return pygame.transform.scale(img, (w, h)).convert()
 
+def _recortar_fondo_claro(ruta):
+    im_bgr = cv2.imread(ruta)
+    if im_bgr is None:
+        surf = pygame.image.load(ruta).convert_alpha()
+        return surf
+    hsv = cv2.cvtColor(im_bgr, cv2.COLOR_BGR2HSV)
+    bg_candidates = ((hsv[:, :, 1] < 28) & (hsv[:, :, 2] > 215)).astype("uint8") * 255
+    _, labels = cv2.connectedComponents(bg_candidates)
+    bordes = set(labels[0, :]) | set(labels[-1, :]) | set(labels[:, 0]) | set(labels[:, -1])
+    bordes.discard(0)
+    es_fondo = cv2.inRange(labels, 0, 0) == 0
+    # Marcar como fondo únicamente las componentes conectadas a los bordes
+    import numpy as np
+    mask_fondo = np.isin(labels, list(bordes))
+    mask_fg = ~mask_fondo
+    ys, xs = np.where(mask_fg)
+    if len(xs) > 0 and len(ys) > 0:
+        x0, x1 = xs.min(), xs.max() + 1
+        y0, y1 = ys.min(), ys.max() + 1
+    else:
+        x0, y0, x1, y1 = 0, 0, im_bgr.shape[1], im_bgr.shape[0]
+    im_rgb = cv2.cvtColor(im_bgr[y0:y1, x0:x1], cv2.COLOR_BGR2RGB)
+    alpha = (mask_fg[y0:y1, x0:x1].astype("uint8") * 255)
+    rgba = np.dstack((im_rgb, alpha))
+    return pygame.image.frombuffer(rgba.tobytes(), (x1 - x0, y1 - y0), "RGBA").convert_alpha()
+
 def cargarvidas(alto):
     vidas = []
     altovida = int(alto * 0.14)
@@ -150,11 +184,38 @@ def cargarvidas(alto):
         vidas.append(pygame.transform.scale(img, (int(altovida * proporcion), altovida)))
     return vidas
 
-def dibujarvida(pantalla, vidas, jugdatos):
+def cargarescudos(alto):
+    escudos = []
+    # Escala proporcional a la barra de vida para ubicarse justo arriba de ella
+    altoescudo = int(alto * 0.115)
+    anchoescudo = int(alto * 0.14 * 3.0)
+    for numero in range(1, 5):
+        ruta = f"Sprites/escudo/escudo{numero}.jpg"
+        if not os.path.exists(ruta):
+            ruta = f"escudo{numero}.jpg"
+        surf = _recortar_fondo_claro(ruta)
+        escudos.append(pygame.transform.smoothscale(surf, (anchoescudo, altoescudo)))
+    return escudos
+
+def dibujarvida(pantalla, vidas, jugdatos, escudos=None):
     vida = max(0, min(jugdatos["vida"], 5))
     spritevida = 5 - vida
     rectvida = vidas[spritevida].get_rect(bottomleft=(0, pantalla.get_height()))
+    if escudos:
+        nivel_escudo = max(0, min(jugdatos.get("escudo", 0), 3))
+        # escudo4.jpg (índice 3) es sin escudo (0), y sube a escudo3 (idx 2), escudo2 (idx 1), escudo1 (idx 0)
+        idx_escudo = 3 - nivel_escudo
+        rectescudo = escudos[idx_escudo].get_rect(bottomleft=(0, rectvida.top - max(2, int(pantalla.get_height() * 0.005))))
+        pantalla.blit(escudos[idx_escudo], rectescudo)
     pantalla.blit(vidas[spritevida], rectvida)
+
+def aplicar_daño_jugador(jugdatos, ahora):
+    if jugdatos.get("escudo", 0) > 0:
+        jugdatos["escudo"] -= 1
+    else:
+        jugdatos["vida"] = max(0, jugdatos["vida"] - 1)
+    jugdatos["ultimo_daño"] = ahora
+    jugdatos["golpe_hasta"] = ahora + 180
 
 def recibirdaño(jugdatos, objetivos):
     ahora = pygame.time.get_ticks()
@@ -166,9 +227,7 @@ def recibirdaño(jugdatos, objetivos):
             continue
         hitbox = objetivo["hitbox"] if isinstance(objetivo, dict) else objetivo
         if jugdatos["hitbox"].colliderect(hitbox):
-            jugdatos["vida"] = max(0, jugdatos["vida"] - 1)
-            jugdatos["ultimo_daño"] = ahora
-            jugdatos["golpe_hasta"] = ahora + 180
+            aplicar_daño_jugador(jugdatos, ahora)
             return
 
 def rojospr(spr):
@@ -209,7 +268,7 @@ def crearene(ancho, alto, cantidad=1, oleada=1, alto_pantalla=None):
     maxy = max(miny, int(alto * 0.82) - hjug)
     espacio = max(12, int(wjug * 0.65))
     obstaculos = obtener_obstaculos(2, ancho, alto)
-    for _ in range(cantidad):
+    for i in range(cantidad):
         rect = sprs["abajo"][0].get_rect()
         for intento in range(40):
             rect.topleft = (random.randint(minx, maxx), random.randint(miny, maxy))
@@ -218,6 +277,7 @@ def crearene(ancho, alto, cantidad=1, oleada=1, alto_pantalla=None):
                 continue
             if all(not rect.inflate(espacio, espacio).colliderect(otro["rect"]) for otro in enemigos):
                 break
+        angulo_base = (i / max(1, cantidad)) * 2 * math.pi
         enemigos.append({
             "nombre": "enemigo boca",
             "rect": rect,
@@ -235,7 +295,9 @@ def crearene(ancho, alto, cantidad=1, oleada=1, alto_pantalla=None):
             "ultfra": 0,
             "ultmov": 0,
             "proximoataq": 0,
-            "vel": max(1, int(alto_pantalla * 0.0040 * (1.3 if oleada >= 15 else 1.0)))
+            "vel": max(1, int(alto_pantalla * 0.0040 * (1.3 if oleada >= 15 else 1.0))),
+            "angulo_ataque": angulo_base,
+            "radio_mult": random.uniform(0.9, 1.35)
         })
     return enemigos
 
@@ -317,13 +379,23 @@ def crearproyene(enemigo, jugdatos):
 
 def actualizaene(enemigos, jugdatos, proys, obstaculos=None):
     ahora = pygame.time.get_ticks()
-    for enemigo in enemigos:
-        if enemigo["vida"] <= 0:
-            continue
-        dx = jugdatos["hitbox"].centerx - enemigo["hitbox"].centerx
-        dy = jugdatos["hitbox"].centery - enemigo["hitbox"].centery
-        dist = max(abs(dx), abs(dy))
-        alcance = enemigo["hitbox"].height * 1.25
+    vivos = [e for e in enemigos if e["vida"] > 0]
+    total_vivos = len(vivos)
+    if total_vivos == 0:
+        return
+
+    jug_center = jugdatos["hitbox"].center
+    alcance_base = jugdatos["hitbox"].height * 1.3
+
+    for idx, enemigo in enumerate(vivos):
+        # Distribuir a los enemigos para que sigan al jugador desde distintos ángulos
+        if "angulo_ataque" not in enemigo:
+            enemigo["angulo_ataque"] = (idx / max(1, total_vivos)) * 2 * math.pi
+            enemigo["radio_mult"] = random.uniform(0.9, 1.35)
+
+        dx_jug = jug_center[0] - enemigo["hitbox"].centerx
+        dy_jug = jug_center[1] - enemigo["hitbox"].centery
+        dist_jug = math.hypot(dx_jug, dy_jug)
 
         if enemigo["ataq"]:
             if ahora - enemigo["ultfra"] >= 100:
@@ -332,36 +404,102 @@ def actualizaene(enemigos, jugdatos, proys, obstaculos=None):
                 if enemigo["fraataq"] >= 3:
                     enemigo["ataq"] = False
                     enemigo["fraataq"] = 0
-        elif dist <= alcance and ahora >= enemigo["proximoataq"]:
+        elif dist_jug <= alcance_base * 1.25 and ahora >= enemigo["proximoataq"]:
             proys.append(crearproyene(enemigo, jugdatos))
-        elif dist > alcance:
-            if abs(dx) >= abs(dy):
-                enemigo["dir"] = "derecha" if dx > 0 else "izquierda"
-            else:
-                enemigo["dir"] = "abajo" if dy > 0 else "arriba"
-            paso = min(enemigo["vel"], dist - alcance)
-            movx = round(dx / dist * paso)
-            movy = round(dy / dist * paso)
-            if obstaculos:
-                if movx != 0:
-                    enemigo["rect"].x += movx
-                    pies_e = colision_pies(enemigo["rect"])
-                    for obs in obstaculos:
-                        if pies_e.colliderect(obs):
+        else:
+            # Objetivo envolvente alrededor del jugador
+            radio_flanco = alcance_base * enemigo.get("radio_mult", 1.1)
+            target_x = jug_center[0] + math.cos(enemigo["angulo_ataque"]) * radio_flanco
+            target_y = jug_center[1] + math.sin(enemigo["angulo_ataque"]) * radio_flanco
+
+            vx = target_x - enemigo["rect"].centerx
+            vy = target_y - enemigo["rect"].centery
+            dist_target = math.hypot(vx, vy)
+
+            dir_x = (vx / dist_target) if dist_target > 4 else 0.0
+            dir_y = (vy / dist_target) if dist_target > 4 else 0.0
+
+            # Fuerza de separación para evitar que se apilen todos en una sola masa
+            radio_sep = max(enemigo["rect"].width, enemigo["rect"].height) * 1.35
+            sep_x = 0.0
+            sep_y = 0.0
+
+            for otro in vivos:
+                if otro is enemigo:
+                    continue
+                ox = enemigo["rect"].centerx - otro["rect"].centerx
+                oy = enemigo["rect"].centery - otro["rect"].centery
+                dist_sq = ox * ox + oy * oy
+                if 0 < dist_sq < (radio_sep * radio_sep):
+                    d = math.sqrt(dist_sq)
+                    fuerza = (radio_sep - d) / radio_sep
+                    sep_x += (ox / d) * fuerza
+                    sep_y += (oy / d) * fuerza
+                elif dist_sq == 0:
+                    rnd_ang = random.uniform(0, 2 * math.pi)
+                    sep_x += math.cos(rnd_ang)
+                    sep_y += math.sin(rnd_ang)
+
+            total_x = dir_x + sep_x * 1.8
+            total_y = dir_y + sep_y * 1.8
+            mag = math.hypot(total_x, total_y)
+
+            if mag > 0.08:
+                vel = enemigo["vel"]
+                paso = min(float(vel), max(1.0, dist_target))
+                movx = round((total_x / mag) * paso)
+                movy = round((total_y / mag) * paso)
+
+                if abs(movx) > abs(movy):
+                    enemigo["dir"] = "derecha" if movx > 0 else "izquierda"
+                elif abs(movy) > 0:
+                    enemigo["dir"] = "abajo" if movy > 0 else "arriba"
+                else:
+                    if abs(dx_jug) >= abs(dy_jug):
+                        enemigo["dir"] = "derecha" if dx_jug > 0 else "izquierda"
+                    else:
+                        enemigo["dir"] = "abajo" if dy_jug > 0 else "arriba"
+
+                if obstaculos:
+                    if movx != 0:
+                        enemigo["rect"].x += movx
+                        pies_e = colision_pies(enemigo["rect"])
+                        if any(pies_e.colliderect(obs) for obs in obstaculos):
                             enemigo["rect"].x -= movx
-                            break
-                if movy != 0:
-                    enemigo["rect"].y += movy
-                    pies_e = colision_pies(enemigo["rect"])
-                    for obs in obstaculos:
-                        if pies_e.colliderect(obs):
+                    if movy != 0:
+                        enemigo["rect"].y += movy
+                        pies_e = colision_pies(enemigo["rect"])
+                        if any(pies_e.colliderect(obs) for obs in obstaculos):
                             enemigo["rect"].y -= movy
-                            break
+                else:
+                    enemigo["rect"].move_ip(movx, movy)
+
+                # Separación física directa si dos enemigos colisionan sus cajas
+                for otro in vivos:
+                    if otro is enemigo:
+                        continue
+                    if enemigo["rect"].colliderect(otro["rect"]):
+                        pdx = enemigo["rect"].centerx - otro["rect"].centerx
+                        pdy = enemigo["rect"].centery - otro["rect"].centery
+                        if pdx == 0 and pdy == 0:
+                            pdx = random.choice([-1, 1])
+                        push_x = 1 if pdx > 0 else -1
+                        enemigo["rect"].x += push_x
+                        if obstaculos and any(colision_pies(enemigo["rect"]).colliderect(obs) for obs in obstaculos):
+                            enemigo["rect"].x -= push_x
+                        push_y = 1 if pdy > 0 else -1
+                        enemigo["rect"].y += push_y
+                        if obstaculos and any(colision_pies(enemigo["rect"]).colliderect(obs) for obs in obstaculos):
+                            enemigo["rect"].y -= push_y
+
+                if ahora - enemigo["ultmov"] >= 140 and (movx != 0 or movy != 0):
+                    enemigo["frame"] = (enemigo["frame"] + 1) % 3
+                    enemigo["ultmov"] = ahora
             else:
-                enemigo["rect"].move_ip(movx, movy)
-            if ahora - enemigo["ultmov"] >= 140:
-                enemigo["frame"] = (enemigo["frame"] + 1) % 3
-                enemigo["ultmov"] = ahora
+                if abs(dx_jug) >= abs(dy_jug):
+                    enemigo["dir"] = "derecha" if dx_jug > 0 else "izquierda"
+                else:
+                    enemigo["dir"] = "abajo" if dy_jug > 0 else "arriba"
 
         if enemigo["ataq"]:
             spr = enemigo["sprataq"][enemigo["dir"]][enemigo["fraataq"]]
@@ -413,9 +551,7 @@ def moverproy(proys, enemigos, ancho, alto, jugdatos=None):
         if proy.get("lado") == "enemigo":
             if jugdatos is not None and proy["rect"].colliderect(jugdatos["hitbox"]):
                 if ahora - jugdatos["ultimo_daño"] >= 1000:
-                    jugdatos["vida"] = max(0, jugdatos["vida"] - 1)
-                    jugdatos["ultimo_daño"] = ahora
-                    jugdatos["golpe_hasta"] = ahora + 180
+                    aplicar_daño_jugador(jugdatos, ahora)
                 proys.remove(proy)
                 continue
         else:
@@ -583,14 +719,22 @@ def cargariconosrecursos(alto):
         escala = tamano / imagen.get_height()
         dimensiones = (int(imagen.get_width() * escala), tamano)
         iconos[nombre] = pygame.transform.smoothscale(imagen, dimensiones)
+
+    ruta_speed = "Sprites/speed.png" if os.path.exists("Sprites/speed.png") else "speed.png"
+    img_speed = _recortar_fondo_claro(ruta_speed)
+    escala_speed = tamano / img_speed.get_height()
+    dim_speed = (max(12, int(img_speed.get_width() * escala_speed)), tamano)
+    iconos["speed"] = pygame.transform.smoothscale(img_speed, dim_speed)
+    iconos["speed_full"] = img_speed
     return iconos
 
-def dibujarrecursos(pantalla, iconos, pesos, panchos, balas=None, balas_maximas=0):
+def dibujarrecursos(pantalla, iconos, pesos, panchos, balas=None, balas_maximas=0, speeds=0):
     alto = pantalla.get_height()
     tamfuente = max(24, int(alto * 0.035))
     if tamfuente not in _fuentes_recursos:
         _fuentes_recursos[tamfuente] = pygame.font.Font(None, tamfuente)
     fuente = _fuentes_recursos[tamfuente]
+    texto_speeds = fuente.render(str(speeds), True, (255, 255, 255))
     texto_panchos = fuente.render(str(panchos), True, (255, 255, 255))
     texto_pesos = fuente.render(str(pesos), True, (255, 255, 255))
     texto_balas = fuente.render(f"Balas: {balas}/{balas_maximas}" if balas is not None else "Balas: --", True, (255, 255, 255))
@@ -598,11 +742,13 @@ def dibujarrecursos(pantalla, iconos, pesos, panchos, balas=None, balas_maximas=
     espacio = max(6, int(alto * 0.01))
     derecha = pantalla.get_width() - margen
 
-    rect_texto_panchos = texto_panchos.get_rect(midright=(derecha, margen + iconos["pancho"].get_height() // 2))
+    rect_texto_speeds = texto_speeds.get_rect(midright=(derecha, margen + iconos["pancho"].get_height() // 2))
+    rect_speed = iconos["speed"].get_rect(midright=(rect_texto_speeds.left - espacio, rect_texto_speeds.centery))
+    rect_texto_panchos = texto_panchos.get_rect(midright=(rect_speed.left - espacio * 2, rect_speed.centery))
     rect_pancho = iconos["pancho"].get_rect(midright=(rect_texto_panchos.left - espacio, rect_texto_panchos.centery))
-    rect_texto_pesos = texto_pesos.get_rect(midright=(rect_pancho.left - espacio, rect_pancho.centery))
+    rect_texto_pesos = texto_pesos.get_rect(midright=(rect_pancho.left - espacio * 2, rect_pancho.centery))
     rect_peso = iconos["peso"].get_rect(midright=(rect_texto_pesos.left - espacio, rect_texto_pesos.centery))
-    rect_balas = texto_balas.get_rect(midright=(rect_peso.left - espacio, rect_peso.centery))
+    rect_balas = texto_balas.get_rect(midright=(rect_peso.left - espacio * 2, rect_peso.centery))
     fondo = pygame.Rect(rect_balas.left - espacio, margen // 2, derecha - rect_balas.left + espacio * 2, iconos["pancho"].get_height() + margen)
     pygame.draw.rect(pantalla, (0, 0, 0, 170), fondo, border_radius=5)
     pantalla.blit(texto_balas, rect_balas)
@@ -610,7 +756,12 @@ def dibujarrecursos(pantalla, iconos, pesos, panchos, balas=None, balas_maximas=
     pantalla.blit(texto_pesos, rect_texto_pesos)
     pantalla.blit(iconos["pancho"], rect_pancho)
     pantalla.blit(texto_panchos, rect_texto_panchos)
-    return rect_pancho
+    pantalla.blit(iconos["speed"], rect_speed)
+    pantalla.blit(texto_speeds, rect_texto_speeds)
+    # Expandir levemente las áreas clicables para incluir el icono y su número
+    area_pancho = rect_pancho.union(rect_texto_panchos).inflate(6, 6)
+    area_speed = rect_speed.union(rect_texto_speeds).inflate(6, 6)
+    return area_pancho, area_speed
 
 def dibujaroleada(pantalla, oleada):
     alto = pantalla.get_height()
@@ -733,6 +884,7 @@ def crearjugador(ancho, alto):
         "fraataq": 0,
         "ultfraataq": 0,
         "vida": 5,
+        "escudo": 0,
         "ultimo_daño": -1000,
         "golpe_hasta": 0
     }
@@ -836,7 +988,7 @@ def moverjugador(jugdatos, teclas, ancho, alto, mapa=1, obstaculos=None):
     else:
         jugdatos["frame"] = 1.0
 
-def dibujarjuego(pantalla, mapagraf, jugdatos, vidas, objetivos, mostrarvida=True, proys=None, camara=(0, 0)):
+def dibujarjuego(pantalla, mapagraf, jugdatos, vidas, objetivos, mostrarvida=True, proys=None, camara=(0, 0), escudos=None):
     cx, cy = camara
     pantalla.blit(mapagraf, (-cx, -cy))
     for objetivo in objetivos:
@@ -873,4 +1025,4 @@ def dibujarjuego(pantalla, mapagraf, jugdatos, vidas, objetivos, mostrarvida=Tru
         pygame.draw.ellipse(pantalla, color, rect_proy)
         pygame.draw.ellipse(pantalla, (35, 30, 20), rect_proy, 1)
     if mostrarvida:
-        dibujarvida(pantalla, vidas, jugdatos)
+        dibujarvida(pantalla, vidas, jugdatos, escudos=escudos)
