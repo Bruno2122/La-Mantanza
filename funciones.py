@@ -197,6 +197,88 @@ def cargarescudos(alto):
         escudos.append(pygame.transform.smoothscale(surf, (anchoescudo, altoescudo)))
     return escudos
 
+_SOMBRAS = {}
+_CACHE_SPRITES_ENEMIGOS = {}
+_CACHE_DROPS = {}
+_CACHE_BALAS = {}
+
+DANO_PUNO = 16
+DANO_BALA = 28
+
+TIPOS_ENEMIGO = {
+    "hincha": {
+        "hp": 30, "vel_mult": 1.0, "dano": 0.5, "escala": 1.0, "tinte": None,
+        "puntos": 10, "pesos": (15, 30), "alcance_mult": 1.15, "espera": 900
+    },
+    "barra": {
+        "hp": 20, "vel_mult": 1.45, "dano": 0.5, "escala": 0.92, "tinte": ("add", (55, 0, 0)),
+        "puntos": 15, "pesos": (20, 40), "alcance_mult": 1.05, "espera": 650
+    },
+    "tanque": {
+        "hp": 90, "vel_mult": 0.72, "dano": 1.0, "escala": 1.35, "tinte": ("mult", (255, 205, 120)),
+        "puntos": 30, "pesos": (45, 75), "alcance_mult": 1.25, "espera": 1150
+    },
+    "jefe": {
+        "hp": 320, "vel_mult": 0.85, "dano": 1.0, "escala": 2.1, "tinte": ("add", (45, 5, 0)),
+        "puntos": 200, "pesos": (180, 260), "alcance_mult": 1.35, "espera": 1050
+    },
+}
+
+def tintar_superficie(superficie, tinte):
+    if not tinte:
+        return superficie
+    modo, color = tinte
+    copia = superficie.copy()
+    bandera = pygame.BLEND_RGB_ADD if modo == "add" else pygame.BLEND_RGB_MULT
+    copia.fill(color, special_flags=bandera)
+    return copia
+
+def blanquear_superficie(superficie):
+    copia = superficie.copy()
+    copia.fill((110, 110, 110), special_flags=pygame.BLEND_RGB_ADD)
+    return copia
+
+def agregar_texto_flotante(jugdatos, texto, x, y, color=(255, 255, 255)):
+    if jugdatos is None:
+        return
+    jugdatos.setdefault("textos", []).append({
+        "texto": str(texto),
+        "x": float(x),
+        "y": float(y),
+        "inicio": pygame.time.get_ticks(),
+        "duracion": 850,
+        "color": color
+    })
+
+def agregar_chispas(jugdatos, x, y, color=(255, 215, 60), cantidad=6, fuerza=4.5):
+    if jugdatos is None:
+        return
+    ahora = pygame.time.get_ticks()
+    chispas = jugdatos.setdefault("chispas", [])
+    for _ in range(cantidad):
+        ang = random.uniform(0, math.tau)
+        vel = random.uniform(0.35, 1.0) * fuerza
+        chispas.append({
+            "x": float(x),
+            "y": float(y),
+            "vx": math.cos(ang) * vel,
+            "vy": math.sin(ang) * vel,
+            "inicio": ahora,
+            "vida": random.randint(200, 420),
+            "color": color,
+            "radio": random.choice((2, 3, 3, 4)),
+        })
+
+def configurar_banner(jugdatos, texto, sub="", duracion_ms=2400):
+    if jugdatos is None:
+        return
+    jugdatos["banner"] = {
+        "texto": texto,
+        "sub": sub,
+        "inicio": pygame.time.get_ticks(),
+        "dur": duracion_ms
+    }
+
 def dibujarvida(pantalla, vidas, jugdatos, escudos=None):
     vida = max(0, min(jugdatos["vida"], 5))
     spritevida = 5 - vida
@@ -209,17 +291,84 @@ def dibujarvida(pantalla, vidas, jugdatos, escudos=None):
         pantalla.blit(escudos[idx_escudo], rectescudo)
     pantalla.blit(vidas[spritevida], rectvida)
 
-def aplicar_daño_jugador(jugdatos, ahora):
-    if jugdatos.get("escudo", 0) > 0:
-        jugdatos["escudo"] -= 1
-    else:
-        jugdatos["vida"] = max(0, jugdatos["vida"] - 1)
+    # Barra de recarga del DASH arriba de las barras o a la derecha de la vida
+    ahora = pygame.time.get_ticks()
+    alto = pantalla.get_height()
+    tam_f = max(18, int(alto * 0.024))
+    if tam_f not in _fuentes_recursos:
+        _fuentes_recursos[tam_f] = pygame.font.Font(None, tam_f)
+    fuente_d = _fuentes_recursos[tam_f]
+    x_dash = rectvida.right + max(14, int(alto * 0.02))
+    y_dash = alto - max(22, int(alto * 0.032))
+    barra = pygame.Rect(x_dash, y_dash, int(alto * 0.18), max(8, int(alto * 0.014)))
+    cd_fin = jugdatos.get("dash_cd_hasta", 0)
+    cd_dur = max(1, jugdatos.get("dash_cd_dur", 950))
+    restante = max(0, cd_fin - ahora)
+    carga = max(0.0, min(1.0, 1.0 - restante / cd_dur))
+    lbl_dash = fuente_d.render("DASH [SHIFT]", True, (255, 255, 255))
+    pantalla.blit(lbl_dash, (barra.x, barra.y - lbl_dash.get_height() - 2))
+    pygame.draw.rect(pantalla, (30, 30, 30), barra, border_radius=4)
+    color_barra = (90, 220, 110) if carga >= 1.0 else (255, 215, 60)
+    if carga > 0:
+        pygame.draw.rect(pantalla, color_barra, pygame.Rect(barra.x, barra.y, int(barra.width * carga), barra.height), border_radius=4)
+    pygame.draw.rect(pantalla, (255, 255, 255), barra, 1, border_radius=4)
+
+def aplicar_daño_jugador(jugdatos, ahora, cantidad=0.5, origen=None, ancho_mapa=None, alto_mapa=None, obstaculos=None):
+    if ahora < jugdatos.get("dash_invul_hasta", 0):
+        return False
+
+    cant = float(cantidad)
+    dano_total = jugdatos.get("dano_acumulado", 0.0) + cant
+    puntos_a_quitar = int(dano_total)
+    jugdatos["dano_acumulado"] = round(dano_total - puntos_a_quitar, 4)
+
+    consumio_escudo = False
+    if puntos_a_quitar > 0:
+        dano_restante = puntos_a_quitar
+        while dano_restante > 0:
+            if jugdatos.get("escudo", 0) > 0:
+                jugdatos["escudo"] -= 1
+                consumio_escudo = True
+            else:
+                jugdatos["vida"] = max(0, jugdatos["vida"] - 1)
+                consumio_escudo = False
+            dano_restante -= 1
+
     jugdatos["ultimo_daño"] = ahora
-    jugdatos["golpe_hasta"] = ahora + 180
+    jugdatos["golpe_hasta"] = ahora + 220
+    jugdatos["shake_hasta"] = ahora + 220
+
+    tiene_escudo = jugdatos.get("escudo", 0) > 0 or consumio_escudo
+    if puntos_a_quitar > 0:
+        txt = f"-{puntos_a_quitar} ESCUDO" if consumio_escudo else f"-{puntos_a_quitar} VIDA"
+        color_txt = (120, 200, 255) if consumio_escudo else (235, 65, 65)
+    else:
+        txt = "-0.5 ESCUDO" if tiene_escudo else "-0.5 VIDA"
+        color_txt = (160, 220, 255) if tiene_escudo else (255, 130, 130)
+
+    agregar_texto_flotante(jugdatos, txt, jugdatos["rect"].centerx, jugdatos["rect"].top - 10, color_txt)
+    agregar_chispas(jugdatos, jugdatos["rect"].centerx, jugdatos["rect"].centery, (230, 60, 60), cantidad=8, fuerza=5.0)
+
+    if origen is not None and ancho_mapa and alto_mapa:
+        ox, oy = origen["rect"].center if isinstance(origen, dict) and "rect" in origen else (origen.centerx, origen.centery)
+        dx = jugdatos["rect"].centerx - ox
+        dy = jugdatos["rect"].centery - oy
+        dist = math.hypot(dx, dy)
+        if dist > 0:
+            empuje = max(10, int(jugdatos["rect"].height * 0.35))
+            ex = round((dx / dist) * empuje)
+            ey = round((dy / dist) * empuje)
+            jugdatos["rect"].x = max(0, min(ancho_mapa - jugdatos["rect"].width, jugdatos["rect"].x + ex))
+            if obstaculos and any(colision_pies(jugdatos["rect"]).colliderect(obs) for obs in obstaculos):
+                jugdatos["rect"].x -= ex
+            jugdatos["rect"].y = max(0, min(alto_mapa - jugdatos["rect"].height, jugdatos["rect"].y + ey))
+            if obstaculos and any(colision_pies(jugdatos["rect"]).colliderect(obs) for obs in obstaculos):
+                jugdatos["rect"].y -= ey
+    return True
 
 def recibirdaño(jugdatos, objetivos):
     ahora = pygame.time.get_ticks()
-    if ahora - jugdatos["ultimo_daño"] < 1000:
+    if ahora - jugdatos["ultimo_daño"] < 900 or ahora < jugdatos.get("dash_invul_hasta", 0):
         return
 
     for objetivo in objetivos:
@@ -227,7 +376,8 @@ def recibirdaño(jugdatos, objetivos):
             continue
         hitbox = objetivo["hitbox"] if isinstance(objetivo, dict) else objetivo
         if jugdatos["hitbox"].colliderect(hitbox):
-            aplicar_daño_jugador(jugdatos, ahora)
+            dano = objetivo.get("dano", 0.5) if isinstance(objetivo, dict) else 0.5
+            aplicar_daño_jugador(jugdatos, ahora, cantidad=dano, origen=objetivo)
             return
 
 def rojospr(spr):
@@ -235,12 +385,14 @@ def rojospr(spr):
     img.fill((255, 70, 70, 255), special_flags=pygame.BLEND_RGBA_MULT)
     return img
 
-def crearene(ancho, alto, cantidad=1, oleada=1, alto_pantalla=None):
-    if alto_pantalla is None:
-        alto_pantalla = int(alto / 2.4)
-    # En mapa 2 los enemigos tienen exactamente la misma escala que el personaje jugable
-    hjug = int(alto_pantalla * 0.075)
-    wjug = int(hjug * (52 / 96))
+def _obtener_sprites_enemigo_tipo(tipo, alto_pantalla):
+    clave = (tipo, alto_pantalla)
+    if clave in _CACHE_SPRITES_ENEMIGOS:
+        return _CACHE_SPRITES_ENEMIGOS[clave]
+
+    cfg = TIPOS_ENEMIGO.get(tipo, TIPOS_ENEMIGO["hincha"])
+    hjug = max(16, int(alto_pantalla * 0.075 * cfg["escala"]))
+    wjug = max(12, int(hjug * (52 / 96)))
     sec = {
         "abajo": [0, 1, 2],
         "arriba": [4, 5, 6],
@@ -254,95 +406,230 @@ def crearene(ancho, alto, cantidad=1, oleada=1, alto_pantalla=None):
         sprataq[d] = []
         for n in nums:
             img = pygame.image.load(f"Sprites/Boca/Boca{n:03d}.png").convert_alpha()
-            sprs[d].append(pygame.transform.scale(img, (wjug, hjug)))
-            img = pygame.image.load(f"Sprites/Boca/BA/BA{n:02d}.png").convert_alpha()
-            sprataq[d].append(pygame.transform.scale(img, (wjug, hjug)))
+            img_esc = tintar_superficie(pygame.transform.scale(img, (wjug, hjug)), cfg["tinte"])
+            sprs[d].append(img_esc)
+            img_a = pygame.image.load(f"Sprites/Boca/BA/BA{n:02d}.png").convert_alpha()
+            img_a_esc = tintar_superficie(pygame.transform.scale(img_a, (wjug, hjug)), cfg["tinte"])
+            sprataq[d].append(img_a_esc)
 
-    sprrojos = {d: [rojospr(img) for img in imgs] for d, imgs in sprs.items()}
-    sprataqrojos = {d: [rojospr(img) for img in imgs] for d, imgs in sprataq.items()}
-    enemigos = []
-    cantidad = max(1, cantidad)
-    minx = min(int(ancho * 0.12), max(0, ancho - wjug))
+    sprrojos = {d: [blanquear_superficie(rojospr(img)) for img in imgs] for d, imgs in sprs.items()}
+    sprataqrojos = {d: [blanquear_superficie(rojospr(img)) for img in imgs] for d, imgs in sprataq.items()}
+    datos_spr = (wjug, hjug, sprs, sprrojos, sprataq, sprataqrojos)
+    _CACHE_SPRITES_ENEMIGOS[clave] = datos_spr
+    return datos_spr
+
+def armar_cola_oleada(oleada):
+    total = min(45, 5 + 3 * oleada)
+    p_tanque = 0.0 if oleada < 4 else min(0.30, 0.10 + 0.02 * (oleada - 4))
+    p_barra = 0.0 if oleada < 2 else min(0.40, 0.20 + 0.03 * (oleada - 2))
+    cola = []
+    for _ in range(total):
+        r = random.random()
+        if r < p_tanque:
+            cola.append("tanque")
+        elif r < p_tanque + p_barra:
+            cola.append("barra")
+        else:
+            cola.append("hincha")
+    jefes = oleada // 5 if oleada % 5 == 0 else 0
+    for _ in range(jefes):
+        cola.insert(len(cola) // 3, "jefe")
+    return {
+        "numero": oleada,
+        "cola": cola,
+        "total": len(cola),
+        "jefe": jefes > 0,
+        "ultimo_spawn": pygame.time.get_ticks(),
+        "intervalo_ms": max(420, int((1.35 - 0.06 * oleada) * 1000)),
+        "max_sim": min(24, 7 + oleada),
+        "completada": False,
+    }
+
+def instanciar_enemigo(tipo, oleada, ancho, alto, alto_pantalla, existentes, jugdatos=None, indice=0, total_esperado=10):
+    cfg = TIPOS_ENEMIGO.get(tipo, TIPOS_ENEMIGO["hincha"])
+    wjug, hjug, sprs, sprrojos, sprataq, sprataqrojos = _obtener_sprites_enemigo_tipo(tipo, alto_pantalla)
+    minx = min(int(ancho * 0.10), max(0, ancho - wjug))
     maxx = max(minx, int(ancho * 0.88) - wjug)
-    miny = min(int(alto * 0.16), max(0, alto - hjug))
-    maxy = max(miny, int(alto * 0.82) - hjug)
+    miny = min(int(alto * 0.14), max(0, alto - hjug))
+    maxy = max(miny, int(alto * 0.84) - hjug)
     espacio = max(12, int(wjug * 0.65))
     obstaculos = obtener_obstaculos(2, ancho, alto)
-    for i in range(cantidad):
-        rect = sprs["abajo"][0].get_rect()
-        for intento in range(40):
+
+    rect = sprs["abajo"][0].get_rect()
+    jx = jugdatos["rect"].centerx if jugdatos else ancho // 4
+    jy = jugdatos["rect"].centery if jugdatos else alto // 2
+    dist_min_jug = max(260, int(alto_pantalla * 0.42))
+
+    for intento in range(55):
+        if intento < 35 and jugdatos is not None:
+            # Preferir bordes de la zona caminable o puntos alejados del jugador
+            lado = random.choice(("der", "arr", "aba", "azar"))
+            if lado == "der":
+                rx = random.randint(max(minx, int(ancho * 0.65)), maxx)
+                ry = random.randint(miny, maxy)
+            elif lado == "arr":
+                rx = random.randint(minx, maxx)
+                ry = random.randint(miny, min(maxy, int(alto * 0.30)))
+            elif lado == "aba":
+                rx = random.randint(minx, maxx)
+                ry = random.randint(max(miny, int(alto * 0.68)), maxy)
+            else:
+                rx = random.randint(minx, maxx)
+                ry = random.randint(miny, maxy)
+            rect.topleft = (rx, ry)
+        else:
             rect.topleft = (random.randint(minx, maxx), random.randint(miny, maxy))
-            pies_ene = colision_pies(rect)
-            if any(pies_ene.colliderect(obs) for obs in obstaculos):
-                continue
-            if all(not rect.inflate(espacio, espacio).colliderect(otro["rect"]) for otro in enemigos):
-                break
-        angulo_base = (i / max(1, cantidad)) * 2 * math.pi
-        enemigos.append({
-            "nombre": "enemigo boca",
-            "rect": rect,
-            "hitbox": creahit(sprs["abajo"][0], rect.topleft),
-            "sprs": sprs,
-            "sprrojos": sprrojos,
-            "sprataq": sprataq,
-            "sprataqrojos": sprataqrojos,
-            "vida": 3,
-            "golpe_hasta": 0,
-            "dir": "abajo",
-            "frame": 0.0,
-            "ataq": False,
-            "fraataq": 0,
-            "ultfra": 0,
-            "ultmov": 0,
-            "proximoataq": 0,
-            "vel": max(1, int(alto_pantalla * 0.0040 * (1.3 if oleada >= 15 else 1.0))),
-            "angulo_ataque": angulo_base,
-            "radio_mult": random.uniform(0.9, 1.35)
-        })
+
+        if math.hypot(rect.centerx - jx, rect.centery - jy) < dist_min_jug and intento < 40:
+            continue
+        pies_ene = colision_pies(rect)
+        if any(pies_ene.colliderect(obs) for obs in obstaculos):
+            continue
+        if all(not rect.inflate(espacio, espacio).colliderect(otro["rect"]) for otro in existentes):
+            break
+
+    hp_max = round(cfg["hp"] * (1 + 0.10 * (oleada - 1)))
+    vel_base = alto_pantalla * 0.0040 * cfg["vel_mult"] * min(1.35, 1 + 0.015 * (oleada - 1)) * random.uniform(0.92, 1.08)
+    angulo_base = (indice / max(1, total_esperado)) * 2 * math.pi + random.uniform(-0.2, 0.2)
+
+    return {
+        "nombre": f"enemigo {tipo}",
+        "tipo": tipo,
+        "escala": cfg["escala"],
+        "dano": cfg["dano"],
+        "puntos": cfg["puntos"],
+        "pesos_rango": cfg["pesos"],
+        "alcance_mult": cfg["alcance_mult"],
+        "espera_ms": cfg["espera"],
+        "rect": rect,
+        "hitbox": creahit(sprs["abajo"][0], rect.topleft),
+        "sprs": sprs,
+        "sprrojos": sprrojos,
+        "sprataq": sprataq,
+        "sprataqrojos": sprataqrojos,
+        "vida": hp_max,
+        "vida_max": hp_max,
+        "golpe_hasta": 0,
+        "kx": 0.0,
+        "ky": 0.0,
+        "dir": "abajo",
+        "frame": random.random() * 3,
+        "ataq": False,
+        "golpe_hecho": False,
+        "fraataq": 0,
+        "ultfra": 0,
+        "ultmov": 0,
+        "proximoataq": pygame.time.get_ticks() + random.randint(250, 700),
+        "vel": max(1, round(vel_base)),
+        "angulo_ataque": angulo_base,
+        "radio_mult": random.uniform(0.9, 1.35)
+    }
+
+def crearene(ancho, alto, cantidad=1, oleada=1, alto_pantalla=None, jugdatos=None):
+    if alto_pantalla is None:
+        alto_pantalla = int(alto / 2.4)
+
+    info_oleada = armar_cola_oleada(oleada)
+    enemigos = []
+    iniciales = min(len(info_oleada["cola"]), max(4, min(info_oleada["max_sim"] // 2, 8)))
+    for i in range(iniciales):
+        tipo = info_oleada["cola"].pop(0)
+        ene = instanciar_enemigo(tipo, oleada, ancho, alto, alto_pantalla, enemigos, jugdatos=jugdatos, indice=i, total_esperado=info_oleada["total"])
+        enemigos.append(ene)
+
+    if jugdatos is not None:
+        jugdatos["oleada_info"] = info_oleada
+        jugdatos["drops"] = []
+        jugdatos["textos"] = []
+        jugdatos["chispas"] = []
+        sub = "¡Cuidado, viene EL JEFE!" if info_oleada["jefe"] else f"{info_oleada['total']} enemigos en camino"
+        configurar_banner(jugdatos, f"OLEADA {oleada}", sub, duracion_ms=2500)
+
     return enemigos
+
+def danar_enemigo(enemigo, cantidad, empuje_x=0.0, empuje_y=0.0, jugdatos=None):
+    ahora = pygame.time.get_ticks()
+    es_escala_nueva = enemigo.get("vida_max", 3) > 5
+    dano_real = cantidad if es_escala_nueva else max(1, round(cantidad / 14))
+    resistencia = 0.3 if enemigo.get("tipo") == "jefe" else 1.0
+    escala = enemigo.get("escala", 1.0)
+
+    enemigo["vida"] = max(0, enemigo["vida"] - dano_real)
+    enemigo["golpe_hasta"] = ahora + 160
+    enemigo["kx"] = enemigo.get("kx", 0.0) + (empuje_x * resistencia / escala)
+    enemigo["ky"] = enemigo.get("ky", 0.0) + (empuje_y * resistencia / escala)
+
+    agregar_texto_flotante(jugdatos, str(int(dano_real)), enemigo["rect"].centerx, enemigo["rect"].top - 6, (255, 255, 255))
+    agregar_chispas(jugdatos, enemigo["hitbox"].centerx, enemigo["hitbox"].centery, (255, 215, 60), cantidad=5, fuerza=4.2)
 
 def crearproy(jugdatos):
     rect = jugdatos["hitbox"]
-    tam = max(6, int(rect.height * 0.12))
-    proy = pygame.Rect(0, 0, tam, tam)
-    dx = 0
-    dy = 0
-    vel = max(6, int(rect.height * 0.18))
-    alcance = max(tam, int(rect.height * 0.85))
-    dir = jugdatos["dirataq"]
+    dir_a = jugdatos["dirataq"]
+    w_zona = max(24, int(rect.width * 1.65))
+    h_zona = max(24, int(rect.height * 1.15))
+    proy = pygame.Rect(0, 0, w_zona, h_zona)
+    vel = max(7, int(rect.height * 0.20))
+    alcance = max(w_zona // 2, int(rect.height * 0.70))
+    dx, dy = 0, 0
 
-    if dir == "arriba":
-        proy.center = (rect.centerx, rect.top)
+    if dir_a == "arriba":
+        proy.midbottom = (rect.centerx, rect.centery)
         dy = -vel
-    elif dir == "abajo":
-        proy.center = (rect.centerx, rect.bottom)
+    elif dir_a == "abajo":
+        proy.midtop = (rect.centerx, rect.centery)
         dy = vel
-    elif dir == "izquierda":
-        proy.center = (rect.left, rect.centery)
+    elif dir_a == "izquierda":
+        proy.midright = (rect.centerx, rect.centery)
         dx = -vel
     else:
-        proy.center = (rect.right, rect.centery)
+        proy.midleft = (rect.centerx, rect.centery)
         dx = vel
 
-    return {"rect": proy, "dx": dx, "dy": dy, "alcance": alcance, "recorrido": 0, "tocados": set()}
+    return {
+        "rect": proy,
+        "dx": dx,
+        "dy": dy,
+        "alcance": alcance,
+        "recorrido": 0,
+        "tocados": set(),
+        "lado": "puno",
+        "invisible": True
+    }
 
 def crearproypistola(jugdatos, destino):
-    origen = jugdatos["hitbox"].center
+    ahora = pygame.time.get_ticks()
+    if ahora < jugdatos.get("cd_disparo_hasta", 0):
+        return None
+    origen = (jugdatos["hitbox"].centerx, jugdatos["hitbox"].centery - int(jugdatos["hitbox"].height * 0.12))
     dx = destino[0] - origen[0]
     dy = destino[1] - origen[1]
     distancia = math.hypot(dx, dy)
     if distancia == 0:
         return None
-    tam = max(4, int(jugdatos["hitbox"].height * 0.055))
+    ux, uy = dx / distancia, dy / distancia
+    if abs(ux) >= abs(uy):
+        jugdatos["dir"] = "derecha" if ux > 0 else "izquierda"
+    else:
+        jugdatos["dir"] = "abajo" if uy > 0 else "arriba"
+    if ux != 0:
+        jugdatos["lado_x"] = 1 if ux > 0 else -1
+
+    jugdatos["cd_disparo_hasta"] = ahora + 220
+    tam = max(8, int(jugdatos["hitbox"].height * 0.14))
     proy = pygame.Rect(0, 0, tam, tam)
-    proy.center = origen
+    proy.center = (int(origen[0] + ux * 16), int(origen[1] + uy * 16))
+    vel_bala = max(20, int(jugdatos["hitbox"].height * 0.42))
+    angulo = math.degrees(math.atan2(-uy, ux))
+    agregar_chispas(jugdatos, proy.centerx, proy.centery, (255, 215, 60), cantidad=3, fuerza=3.2)
+
     return {
         "rect": proy,
-        "dx": dx / distancia * max(18, int(jugdatos["hitbox"].height * 0.35)),
-        "dy": dy / distancia * max(18, int(jugdatos["hitbox"].height * 0.35)),
-        "alcance": distancia,
+        "dx": ux * vel_bala,
+        "dy": uy * vel_bala,
+        "alcance": max(distancia, jugdatos["hitbox"].height * 9.5),
         "recorrido": 0,
         "destino": destino,
+        "angulo": angulo,
         "lado": "pistola"
     }
 
@@ -354,12 +641,13 @@ def crearproyene(enemigo, jugdatos):
         dir = "abajo" if dy >= 0 else "arriba"
     enemigo["dir"] = dir
     enemigo["ataq"] = True
+    enemigo["golpe_hecho"] = False
     enemigo["fraataq"] = 0
     enemigo["ultfra"] = pygame.time.get_ticks()
-    enemigo["proximoataq"] = pygame.time.get_ticks() + 500
+    enemigo["proximoataq"] = pygame.time.get_ticks() + enemigo.get("espera_ms", 850)
 
     hitbox = enemigo["hitbox"]
-    tam = max(6, int(hitbox.height * 0.12))
+    tam = max(8, int(hitbox.height * 0.16))
     vel = max(6, int(hitbox.height * 0.18))
     proy = pygame.Rect(0, 0, tam, tam)
     if dir == "arriba":
@@ -375,40 +663,224 @@ def crearproyene(enemigo, jugdatos):
         proy.center = (hitbox.right, hitbox.centery)
         movx, movy = vel, 0
     alcance = max(tam, int(hitbox.height * 0.85))
-    return {"rect": proy, "dx": movx, "dy": movy, "alcance": alcance, "recorrido": 0, "lado": "enemigo"}
+    return {
+        "rect": proy,
+        "dx": movx,
+        "dy": movy,
+        "alcance": alcance,
+        "recorrido": 0,
+        "lado": "enemigo",
+        "dano": enemigo.get("dano", 0.5),
+        "origen": enemigo
+    }
 
-def actualizaene(enemigos, jugdatos, proys, obstaculos=None):
+def generar_drops_enemigo(jugdatos, enemigo):
+    if jugdatos is None:
+        return
     ahora = pygame.time.get_ticks()
+    drops = jugdatos.setdefault("drops", [])
+    ex, ey = enemigo["rect"].centerx, enemigo["rect"].bottom
+    rango_pesos = enemigo.get("pesos_rango", (15, 30))
+
+    if enemigo.get("tipo") == "jefe":
+        total = random.randint(*rango_pesos)
+        for _ in range(6):
+            drops.append({
+                "tipo": "peso",
+                "x": ex + random.uniform(-35, 35),
+                "y": ey + random.uniform(-18, 18),
+                "valor": max(5, total // 6),
+                "inicio": ahora,
+                "vida_ms": 16000,
+                "iman": False
+            })
+        drops.append({
+            "tipo": "pancho",
+            "x": ex,
+            "y": ey,
+            "valor": 1,
+            "inicio": ahora,
+            "vida_ms": 16000,
+            "iman": False
+        })
+        return
+
+    if random.random() < 0.85:
+        drops.append({
+            "tipo": "peso",
+            "x": ex + random.uniform(-12, 12),
+            "y": ey + random.uniform(-6, 6),
+            "valor": random.randint(*rango_pesos),
+            "inicio": ahora,
+            "vida_ms": 14000,
+            "iman": False
+        })
+    if random.random() < 0.12:
+        drops.append({
+            "tipo": "pancho",
+            "x": ex + random.uniform(-10, 10),
+            "y": ey + random.uniform(-6, 6),
+            "valor": 1,
+            "inicio": ahora,
+            "vida_ms": 14000,
+            "iman": False
+        })
+    if jugdatos.get("pistola") and random.random() < 0.18:
+        drops.append({
+            "tipo": "balas",
+            "x": ex + random.uniform(-10, 10),
+            "y": ey + random.uniform(-6, 6),
+            "valor": 3,
+            "inicio": ahora,
+            "vida_ms": 14000,
+            "iman": False
+        })
+
+def actualizar_drops_y_efectos(jugdatos):
+    if jugdatos is None:
+        return
+    ahora = pygame.time.get_ticks()
+    jx, jy = jugdatos["rect"].centerx, jugdatos["rect"].centery
+
+    # Actualizar drops en el suelo
+    nuevos_drops = []
+    for d in jugdatos.get("drops", []):
+        edad = ahora - d["inicio"]
+        if edad >= d["vida_ms"]:
+            continue
+        dx = jx - d["x"]
+        dy = jy - d["y"]
+        dist = math.hypot(dx, dy)
+        radio_iman = max(90, int(jugdatos["rect"].height * 1.45))
+        if d.get("iman") or dist < radio_iman:
+            vel_iman = 11.0 if d.get("iman") else 5.5
+            if dist > 0:
+                d["x"] += (dx / dist) * vel_iman
+                d["y"] += (dy / dist) * vel_iman
+        if dist < max(26, int(jugdatos["rect"].width * 0.75)):
+            if d["tipo"] == "peso":
+                jugdatos["pesos"] = jugdatos.get("pesos", 0) + d["valor"]
+                agregar_texto_flotante(jugdatos, f"+${d['valor']}", jx, jugdatos["rect"].top - 12, (255, 215, 60))
+            elif d["tipo"] == "pancho":
+                if jugdatos["vida"] < 5:
+                    jugdatos["vida"] = min(5, jugdatos["vida"] + 1)
+                    jugdatos["dano_acumulado"] = 0.0
+                    agregar_texto_flotante(jugdatos, "+1 VIDA", jx, jugdatos["rect"].top - 12, (90, 220, 110))
+                else:
+                    jugdatos["panchos_extra"] = jugdatos.get("panchos_extra", 0) + 1
+                    agregar_texto_flotante(jugdatos, "+1 PANCHO", jx, jugdatos["rect"].top - 12, (90, 220, 110))
+            elif d["tipo"] == "balas":
+                jugdatos["balas_extra"] = jugdatos.get("balas_extra", 0) + d["valor"]
+                agregar_texto_flotante(jugdatos, f"+{d['valor']} BALAS", jx, jugdatos["rect"].top - 12, (120, 200, 255))
+            continue
+        nuevos_drops.append(d)
+    jugdatos["drops"] = nuevos_drops
+
+    # Actualizar chispas
+    nuevas_chispas = []
+    for c in jugdatos.get("chispas", []):
+        if ahora - c["inicio"] >= c["vida"]:
+            continue
+        c["x"] += c["vx"]
+        c["y"] += c["vy"]
+        c["vy"] += 0.22
+        nuevas_chispas.append(c)
+    jugdatos["chispas"] = nuevas_chispas
+
+    # Actualizar textos flotantes
+    nuevos_textos = []
+    for t in jugdatos.get("textos", []):
+        if ahora - t["inicio"] >= t["duracion"]:
+            continue
+        t["y"] -= 0.75
+        nuevos_textos.append(t)
+    jugdatos["textos"] = nuevos_textos
+
+    # Actualizar banner
+    banner = jugdatos.get("banner")
+    if banner and ahora - banner["inicio"] >= banner["dur"]:
+        jugdatos["banner"] = None
+
+def actualizaene(enemigos, jugdatos, proys, obstaculos=None, ancho=None, alto=None):
+    ahora = pygame.time.get_ticks()
+    actualizar_drops_y_efectos(jugdatos)
+
+    # Spawner progresivo de la oleada
+    info_oleada = jugdatos.get("oleada_info") if jugdatos else None
     vivos = [e for e in enemigos if e["vida"] > 0]
+    if info_oleada and info_oleada["cola"]:
+        if len(vivos) < info_oleada["max_sim"] and (ahora - info_oleada["ultimo_spawn"] >= info_oleada["intervalo_ms"] or len(vivos) == 0):
+            info_oleada["ultimo_spawn"] = ahora
+            tipo_nuevo = info_oleada["cola"].pop(0)
+            w_m = ancho or 2400
+            h_m = alto or 1400
+            h_pant = int(h_m / 2.4)
+            idx_spawn = info_oleada["total"] - len(info_oleada["cola"])
+            nuevo_ene = instanciar_enemigo(tipo_nuevo, info_oleada["numero"], w_m, h_m, h_pant, enemigos, jugdatos=jugdatos, indice=idx_spawn, total_esperado=info_oleada["total"])
+            enemigos.append(nuevo_ene)
+            vivos.append(nuevo_ene)
+            if tipo_nuevo == "jefe":
+                configurar_banner(jugdatos, "¡LLEGÓ EL JEFE!", "Derrotalo para despejar la zona", duracion_ms=2400)
+
     total_vivos = len(vivos)
     if total_vivos == 0:
+        if info_oleada and not info_oleada["cola"] and not info_oleada.get("completada"):
+            info_oleada["completada"] = True
+            n = info_oleada["numero"]
+            bonus = 25 * n
+            jugdatos["pesos"] = jugdatos.get("pesos", 0) + bonus
+            jugdatos["puntos"] = jugdatos.get("puntos", 0) + 50 * n
+            for d in jugdatos.get("drops", []):
+                d["iman"] = True
+            configurar_banner(jugdatos, f"¡OLEADA {n} COMPLETADA!", f"+${bonus} de bonus - Avanza a la derecha ->", duracion_ms=3500)
         return
 
     jug_center = jugdatos["hitbox"].center
-    alcance_base = jugdatos["hitbox"].height * 1.3
+    alcance_base = jugdatos["hitbox"].height * 1.25
 
     for idx, enemigo in enumerate(vivos):
-        # Distribuir a los enemigos para que sigan al jugador desde distintos ángulos
         if "angulo_ataque" not in enemigo:
             enemigo["angulo_ataque"] = (idx / max(1, total_vivos)) * 2 * math.pi
             enemigo["radio_mult"] = random.uniform(0.9, 1.35)
 
+        # Aplicar retroceso (knockback) si recibió un golpe o disparo
+        kx = enemigo.get("kx", 0.0)
+        ky = enemigo.get("ky", 0.0)
+        if abs(kx) > 0.4 or abs(ky) > 0.4:
+            rx = round(kx)
+            ry = round(ky)
+            if rx != 0:
+                enemigo["rect"].x += rx
+                if obstaculos and any(colision_pies(enemigo["rect"]).colliderect(obs) for obs in obstaculos):
+                    enemigo["rect"].x -= rx
+            if ry != 0:
+                enemigo["rect"].y += ry
+                if obstaculos and any(colision_pies(enemigo["rect"]).colliderect(obs) for obs in obstaculos):
+                    enemigo["rect"].y -= ry
+            enemigo["kx"] = kx * 0.78
+            enemigo["ky"] = ky * 0.78
+
         dx_jug = jug_center[0] - enemigo["hitbox"].centerx
         dy_jug = jug_center[1] - enemigo["hitbox"].centery
         dist_jug = math.hypot(dx_jug, dy_jug)
+        alcance_ene = alcance_base * enemigo.get("alcance_mult", 1.15)
 
         if enemigo["ataq"]:
-            if ahora - enemigo["ultfra"] >= 100:
+            if ahora - enemigo["ultfra"] >= 110:
                 enemigo["fraataq"] += 1
                 enemigo["ultfra"] = ahora
+                if enemigo["fraataq"] == 1 and not enemigo.get("golpe_hecho", False):
+                    enemigo["golpe_hecho"] = True
+                    if dist_jug <= alcance_ene * 1.25 and ahora - jugdatos["ultimo_daño"] >= 900:
+                        aplicar_daño_jugador(jugdatos, ahora, cantidad=enemigo.get("dano", 0.5), origen=enemigo, ancho_mapa=ancho, alto_mapa=alto, obstaculos=obstaculos)
                 if enemigo["fraataq"] >= 3:
                     enemigo["ataq"] = False
                     enemigo["fraataq"] = 0
-        elif dist_jug <= alcance_base * 1.25 and ahora >= enemigo["proximoataq"]:
+        elif dist_jug <= alcance_ene and ahora >= enemigo["proximoataq"]:
             proys.append(crearproyene(enemigo, jugdatos))
         else:
             # Objetivo envolvente alrededor del jugador
-            radio_flanco = alcance_base * enemigo.get("radio_mult", 1.1)
+            radio_flanco = alcance_ene * enemigo.get("radio_mult", 1.1)
             target_x = jug_center[0] + math.cos(enemigo["angulo_ataque"]) * radio_flanco
             target_y = jug_center[1] + math.sin(enemigo["angulo_ataque"]) * radio_flanco
 
@@ -513,7 +985,12 @@ def moverproy(proys, enemigos, ancho, alto, jugdatos=None):
         if enemigo["vida"] <= 0 and ahora >= enemigo["golpe_hasta"]:
             enemigos.remove(enemigo)
             if jugdatos is not None:
-                jugdatos["pesos"] = jugdatos.get("pesos", 0) + 10
+                oleada_actual = jugdatos.get("oleada_info", {}).get("numero", 1)
+                pts = round(enemigo.get("puntos", 10) * (1 + 0.1 * (oleada_actual - 1)))
+                jugdatos["puntos"] = jugdatos.get("puntos", 0) + pts
+                jugdatos["kills"] = jugdatos.get("kills", 0) + 1
+                generar_drops_enemigo(jugdatos, enemigo)
+                agregar_chispas(jugdatos, enemigo["rect"].centerx, enemigo["rect"].centery, (230, 60, 60), cantidad=12, fuerza=5.5)
 
     for proy in proys[:]:
         if proy.get("lado") == "pistola":
@@ -522,7 +999,7 @@ def moverproy(proys, enemigos, ancho, alto, jugdatos=None):
             restante = max(0, proy["alcance"] - proy["recorrido"])
             paso = min(velocidad, restante)
             if paso >= restante:
-                proy["rect"].center = proy["destino"]
+                proy["rect"].move_ip(round(proy["dx"]), round(proy["dy"]))
             else:
                 movx = round(proy["dx"] / velocidad * paso)
                 movy = round(proy["dy"] / velocidad * paso)
@@ -531,15 +1008,16 @@ def moverproy(proys, enemigos, ancho, alto, jugdatos=None):
             movy = proy["rect"].centery - anterior[1]
             proy["recorrido"] = min(proy["alcance"], proy["recorrido"] + math.hypot(movx, movy))
             actual = proy["rect"].center
+            ux = proy["dx"] / velocidad if velocidad > 0 else 0
+            uy = proy["dy"] / velocidad if velocidad > 0 else 0
             for enemigo in enemigos:
-                if enemigo["vida"] > 0 and enemigo["hitbox"].clipline(anterior, actual):
-                    enemigo["vida"] = max(0, enemigo["vida"] - 2)
-                    enemigo["golpe_hasta"] = ahora + 180
+                if enemigo["vida"] > 0 and (enemigo["hitbox"].clipline(anterior, actual) or enemigo["hitbox"].colliderect(proy["rect"])):
+                    danar_enemigo(enemigo, DANO_BALA, empuje_x=ux * 11.0, empuje_y=uy * 11.0, jugdatos=jugdatos)
                     proys.remove(proy)
                     break
             if proy not in proys:
                 continue
-            if proy["recorrido"] >= proy["alcance"] or not pygame.Rect(0, 0, ancho, alto).colliderect(proy["rect"]):
+            if proy["recorrido"] >= proy["alcance"] or not pygame.Rect(-40, -40, ancho + 80, alto + 80).colliderect(proy["rect"]):
                 proys.remove(proy)
             continue
 
@@ -550,19 +1028,20 @@ def moverproy(proys, enemigos, ancho, alto, jugdatos=None):
         proy["recorrido"] += paso
         if proy.get("lado") == "enemigo":
             if jugdatos is not None and proy["rect"].colliderect(jugdatos["hitbox"]):
-                if ahora - jugdatos["ultimo_daño"] >= 1000:
-                    aplicar_daño_jugador(jugdatos, ahora)
+                if ahora - jugdatos["ultimo_daño"] >= 900:
+                    aplicar_daño_jugador(jugdatos, ahora, cantidad=proy.get("dano", 0.5), origen=proy.get("origen"), ancho_mapa=ancho, alto_mapa=alto)
                 proys.remove(proy)
                 continue
         else:
+            vx = 1 if proy["dx"] > 0 else (-1 if proy["dx"] < 0 else 0)
+            vy = 1 if proy["dy"] > 0 else (-1 if proy["dy"] < 0 else 0)
             for enemigo in enemigos:
                 if enemigo["vida"] <= 0:
                     continue
                 idene = id(enemigo)
                 if idene not in proy["tocados"] and proy["rect"].colliderect(enemigo["hitbox"]):
                     proy["tocados"].add(idene)
-                    enemigo["vida"] -= 1
-                    enemigo["golpe_hasta"] = ahora + 180
+                    danar_enemigo(enemigo, DANO_PUNO, empuje_x=vx * 14.0, empuje_y=vy * 14.0, jugdatos=jugdatos)
         if proy["recorrido"] >= proy["alcance"] or not pygame.Rect(0, 0, ancho, alto).colliderect(proy["rect"]):
             proys.remove(proy)
 
@@ -763,18 +1242,63 @@ def dibujarrecursos(pantalla, iconos, pesos, panchos, balas=None, balas_maximas=
     area_speed = rect_speed.union(rect_texto_speeds).inflate(6, 6)
     return area_pancho, area_speed
 
-def dibujaroleada(pantalla, oleada):
+def dibujaroleada(pantalla, oleada, enemigos=None, jugdatos=None):
     alto = pantalla.get_height()
+    ancho = pantalla.get_width()
     tamfuente = max(28, int(alto * 0.045))
+    tamchica = max(20, int(alto * 0.028))
     if tamfuente not in _fuentes_recursos:
         _fuentes_recursos[tamfuente] = pygame.font.Font(None, tamfuente)
+    if tamchica not in _fuentes_recursos:
+        _fuentes_recursos[tamchica] = pygame.font.Font(None, tamchica)
     fuente = _fuentes_recursos[tamfuente]
-    texto = fuente.render(f"Oleada {oleada}", True, (255, 255, 255))
+    fuente_chica = _fuentes_recursos[tamchica]
+
     margen = max(12, int(alto * 0.02))
-    rect = texto.get_rect(topleft=(margen * 2, margen))
-    fondo = rect.inflate(margen * 2, margen)
-    pygame.draw.rect(pantalla, (0, 0, 0, 170), fondo, border_radius=5)
-    pantalla.blit(texto, rect)
+    info = jugdatos.get("oleada_info") if jugdatos else None
+    en_cola = len(info["cola"]) if info else 0
+    vivos = len([e for e in (enemigos or []) if e.get("vida", 0) > 0])
+    restantes = en_cola + vivos
+    puntos = jugdatos.get("puntos", 0) if jugdatos else 0
+
+    texto = fuente.render(f"Oleada {oleada}", True, (255, 255, 255))
+    sub_txt = f"Restantes: {restantes}  |  Puntos: {puntos}" if enemigos is not None else f"Puntos: {puntos}"
+    sub = fuente_chica.render(sub_txt, True, (215, 215, 215))
+
+    rect_t = texto.get_rect(topleft=(margen * 2, margen))
+    rect_s = sub.get_rect(topleft=(margen * 2, rect_t.bottom + 2))
+    fondo = rect_t.union(rect_s).inflate(margen * 2, margen)
+    pygame.draw.rect(pantalla, (0, 0, 0, 175), fondo, border_radius=6)
+    pantalla.blit(texto, rect_t)
+    pantalla.blit(sub, rect_s)
+
+    # Banner central de oleada / jefe / victoria de oleada
+    banner = jugdatos.get("banner") if jugdatos else None
+    if banner:
+        ahora = pygame.time.get_ticks()
+        trans = ahora - banner["inicio"]
+        dur = max(1, banner["dur"])
+        if 0 <= trans < dur:
+            tam_banner = max(48, int(alto * 0.085))
+            if tam_banner not in _fuentes_recursos:
+                _fuentes_recursos[tam_banner] = pygame.font.Font(None, tam_banner)
+            f_ban = _fuentes_recursos[tam_banner]
+            alfa = max(0.0, min(1.0, trans / 280.0, (dur - trans) / 450.0))
+            img_b = f_ban.render(banner["texto"], True, (255, 215, 60))
+            sombra_b = f_ban.render(banner["texto"], True, (0, 0, 0))
+            img_b.set_alpha(int(255 * alfa))
+            sombra_b.set_alpha(int(255 * alfa))
+            rect_b = img_b.get_rect(center=(ancho // 2, int(alto * 0.24)))
+            pantalla.blit(sombra_b, rect_b.move(3, 3))
+            pantalla.blit(img_b, rect_b)
+            if banner.get("sub"):
+                img_sub = fuente.render(banner["sub"], True, (255, 255, 255))
+                sombra_sub = fuente.render(banner["sub"], True, (0, 0, 0))
+                img_sub.set_alpha(int(255 * alfa))
+                sombra_sub.set_alpha(int(255 * alfa))
+                rect_sb = img_sub.get_rect(center=(ancho // 2, int(alto * 0.31)))
+                pantalla.blit(sombra_sub, rect_sb.move(2, 2))
+                pantalla.blit(img_sub, rect_sb)
 
 def cargarsprites(wjug, hjug):
     dic = {
@@ -808,29 +1332,113 @@ def cargarsprataq(wjug, hjug):
             sprs[d].append(img)
     return sprs
 
-def iniciarataq(jugdatos, destino=None):
-    if not jugdatos["ataq"]:
-        if destino is not None:
-            dx = destino[0] - jugdatos["hitbox"].centerx
-            dy = destino[1] - jugdatos["hitbox"].centery
-            if dx != 0 or dy != 0:
-                if abs(dx) >= abs(dy):
-                    jugdatos["dir"] = "derecha" if dx > 0 else "izquierda"
-                else:
-                    jugdatos["dir"] = "abajo" if dy > 0 else "arriba"
-        jugdatos["ataq"] = True
-        jugdatos["dirataq"] = jugdatos["dir"]
-        jugdatos["fraataq"] = 0
-        jugdatos["ultfraataq"] = pygame.time.get_ticks()
-        return True
-    return False
+def cargarsprdash(hjug):
+    derecha = []
+    izquierda = []
+    for i in range(8):
+        ruta = f"Sprites/Mc/Dash_Normal/dash_{i:02d}.png"
+        img = pygame.image.load(ruta).convert_alpha()
+        caja = img.get_bounding_rect()
+        recorte = img.subsurface(caja).copy()
+        escala = hjug / max(1, recorte.get_height())
+        w_d = max(12, int(recorte.get_width() * escala))
+        spr_d = pygame.transform.scale(recorte, (w_d, hjug))
+        derecha.append(spr_d)
+        izquierda.append(pygame.transform.flip(spr_d, True, False))
+    return {"derecha": derecha, "izquierda": izquierda}
+
+def iniciardash(jugdatos, teclas=None):
+    ahora = pygame.time.get_ticks()
+    if jugdatos.get("dash") or ahora < jugdatos.get("dash_cd_hasta", 0):
+        return False
+
+    dx, dy = 0, 0
+    if teclas is not None:
+        dx = int(teclas[pygame.K_d] or teclas[pygame.K_RIGHT]) - int(teclas[pygame.K_a] or teclas[pygame.K_LEFT])
+        dy = int(teclas[pygame.K_s] or teclas[pygame.K_DOWN]) - int(teclas[pygame.K_w] or teclas[pygame.K_UP])
+
+    if dx == 0 and dy == 0:
+        d = jugdatos.get("dir", "abajo")
+        if d == "derecha":
+            dx = 1
+        elif d == "izquierda":
+            dx = -1
+        elif d == "arriba":
+            dy = -1
+        else:
+            dy = 1
+
+    mag = math.hypot(dx, dy)
+    ux, uy = (dx / mag, dy / mag) if mag > 0 else (1.0, 0.0)
+    if ux != 0:
+        jugdatos["lado_x"] = 1 if ux > 0 else -1
+
+    dur_ms = 230
+    cd_ms = 950
+    jugdatos["ataq"] = False
+    jugdatos["dash"] = True
+    jugdatos["dash_inicio"] = ahora
+    jugdatos["dash_hasta"] = ahora + dur_ms
+    jugdatos["dash_dur"] = dur_ms
+    jugdatos["dash_cd_hasta"] = ahora + cd_ms
+    jugdatos["dash_cd_dur"] = cd_ms
+    jugdatos["dash_invul_hasta"] = ahora + dur_ms + 80
+    jugdatos["dash_vec"] = (ux, uy)
+    return True
+
+def iniciarataq(jugdatos, destino=None, enemigos=None):
+    ahora = pygame.time.get_ticks()
+    if jugdatos.get("dash") or jugdatos["ataq"] or ahora < jugdatos.get("cd_golpe_hasta", 0):
+        return False
+
+    # Asistencia de apuntado cuerpo a cuerpo hacia el enemigo más cercano en rango
+    cercano = None
+    mejor_dist = jugdatos["rect"].height * 2.1
+    if enemigos:
+        jx, jy = jugdatos["hitbox"].center
+        for e in enemigos:
+            if e.get("vida", 0) <= 0:
+                continue
+            d = math.hypot(e["hitbox"].centerx - jx, e["hitbox"].centery - jy)
+            if d < mejor_dist:
+                mejor_dist = d
+                cercano = e
+
+    if cercano is not None:
+        dx = cercano["hitbox"].centerx - jugdatos["hitbox"].centerx
+        dy = cercano["hitbox"].centery - jugdatos["hitbox"].centery
+        if abs(dx) >= abs(dy):
+            jugdatos["dir"] = "derecha" if dx > 0 else "izquierda"
+        else:
+            jugdatos["dir"] = "abajo" if dy > 0 else "arriba"
+        if dx != 0:
+            jugdatos["lado_x"] = 1 if dx > 0 else -1
+    elif destino is not None:
+        dx = destino[0] - jugdatos["hitbox"].centerx
+        dy = destino[1] - jugdatos["hitbox"].centery
+        if dx != 0 or dy != 0:
+            if abs(dx) >= abs(dy):
+                jugdatos["dir"] = "derecha" if dx > 0 else "izquierda"
+            else:
+                jugdatos["dir"] = "abajo" if dy > 0 else "arriba"
+            if dx != 0:
+                jugdatos["lado_x"] = 1 if dx > 0 else -1
+
+    jugdatos["ataq"] = True
+    jugdatos["dirataq"] = jugdatos["dir"]
+    jugdatos["fraataq"] = 0
+    jugdatos["ultfraataq"] = ahora
+    return True
 
 def actualizarataq(jugdatos):
+    ahora = pygame.time.get_ticks()
+    if jugdatos.get("dash") and ahora >= jugdatos.get("dash_hasta", 0):
+        jugdatos["dash"] = False
+
     if not jugdatos["ataq"]:
         return
 
-    ahora = pygame.time.get_ticks()
-    if ahora - jugdatos["ultfraataq"] < 100:
+    if ahora - jugdatos["ultfraataq"] < 85:
         return
 
     jugdatos["fraataq"] += 1
@@ -838,6 +1446,7 @@ def actualizarataq(jugdatos):
     if jugdatos["fraataq"] >= len(jugdatos["sprataq"][jugdatos["dirataq"]]):
         jugdatos["ataq"] = False
         jugdatos["fraataq"] = 0
+        jugdatos["cd_golpe_hasta"] = ahora + 110
 
 def crearjugador(ancho, alto):
     # Escala para mapa 1 (Bazar, ciudad: 10% más chico que antes)
@@ -850,6 +1459,7 @@ def crearjugador(ancho, alto):
 
     sprs1 = cargarsprites(wjug1, hjug1)
     sprataq1 = cargarsprataq(wjug1, hjug1)
+    sprdash1 = cargarsprdash(hjug1)
     sprrojos1 = {d: [rojospr(spr) for spr in lista] for d, lista in sprs1.items()}
     sprataqrojos1 = {d: [rojospr(spr) for spr in lista] for d, lista in sprataq1.items()}
 
@@ -859,6 +1469,7 @@ def crearjugador(ancho, alto):
     vel2 = max(2, int(alto * 0.007))
     sprs2 = cargarsprites(wjug2, hjug2)
     sprataq2 = cargarsprataq(wjug2, hjug2)
+    sprdash2 = cargarsprdash(hjug2)
     sprrojos2 = {d: [rojospr(spr) for spr in lista] for d, lista in sprs2.items()}
     sprataqrojos2 = {d: [rojospr(spr) for spr in lista] for d, lista in sprataq2.items()}
 
@@ -872,21 +1483,46 @@ def crearjugador(ancho, alto):
         "sprrojos": sprrojos1,
         "sprataq": sprataq1,
         "sprataqrojos": sprataqrojos1,
+        "sprdash": sprdash1,
         "_escalas": {
-            1: {"w": wjug1, "h": hjug1, "vel": vel1, "sprs": sprs1, "sprrojos": sprrojos1, "sprataq": sprataq1, "sprataqrojos": sprataqrojos1},
-            2: {"w": wjug2, "h": hjug2, "vel": vel2, "sprs": sprs2, "sprrojos": sprrojos2, "sprataq": sprataq2, "sprataqrojos": sprataqrojos2},
+            1: {"w": wjug1, "h": hjug1, "vel": vel1, "sprs": sprs1, "sprrojos": sprrojos1, "sprataq": sprataq1, "sprataqrojos": sprataqrojos1, "sprdash": sprdash1},
+            2: {"w": wjug2, "h": hjug2, "vel": vel2, "sprs": sprs2, "sprrojos": sprrojos2, "sprataq": sprataq2, "sprataqrojos": sprataqrojos2, "sprdash": sprdash2},
         },
         "mapa_escala": 1,
         "dir": "abajo",
+        "lado_x": 1,
         "frame": 1.0,
         "ataq": False,
         "dirataq": "abajo",
         "fraataq": 0,
         "ultfraataq": 0,
+        "cd_golpe_hasta": 0,
+        "cd_disparo_hasta": 0,
+        "dash": False,
+        "dash_inicio": 0,
+        "dash_hasta": 0,
+        "dash_dur": 230,
+        "dash_cd_hasta": 0,
+        "dash_cd_dur": 950,
+        "dash_invul_hasta": 0,
+        "dash_vec": (1.0, 0.0),
         "vida": 5,
         "escudo": 0,
+        "dano_acumulado": 0.0,
+        "pesos": 0,
+        "pistola": False,
+        "panchos_extra": 0,
+        "balas_extra": 0,
+        "puntos": 0,
+        "kills": 0,
         "ultimo_daño": -1000,
-        "golpe_hasta": 0
+        "golpe_hasta": 0,
+        "shake_hasta": 0,
+        "drops": [],
+        "chispas": [],
+        "textos": [],
+        "banner": None,
+        "oleada_info": None,
     }
     return jugdatos
 
@@ -903,15 +1539,14 @@ def cambiar_escala_jugador(jugdatos, ancho, alto, mapa=1):
     jugdatos["sprrojos"] = esc["sprrojos"]
     jugdatos["sprataq"] = esc["sprataq"]
     jugdatos["sprataqrojos"] = esc["sprataqrojos"]
+    jugdatos["sprdash"] = esc["sprdash"]
     jugdatos["mapa_escala"] = id_mapa
 
     spr = jugdatos["sprs"][jugdatos["dir"]][0]
     jugdatos["hitbox"] = creahit(spr, jugdatos["rect"].topleft)
 
 def moverjugador(jugdatos, teclas, ancho, alto, mapa=1, obstaculos=None):
-    if jugdatos["ataq"]:
-        return
-
+    ahora = pygame.time.get_ticks()
     if isinstance(mapa, (tuple, list)):
         mapa = 2 if (ancho > 2000 or alto > 1200 or mapa == (0.29, 0.72)) else 1
 
@@ -921,27 +1556,42 @@ def moverjugador(jugdatos, teclas, ancho, alto, mapa=1, obstaculos=None):
     rect = jugdatos["rect"]
     vel = jugdatos["vel"]
     mov = False
-
     dx = 0
     dy = 0
 
-    if teclas[pygame.K_w] or teclas[pygame.K_UP]:
-        dy -= vel
-        jugdatos["dir"] = "arriba"
+    if jugdatos.get("dash") and ahora < jugdatos.get("dash_hasta", 0):
+        ux, uy = jugdatos.get("dash_vec", (1.0, 0.0))
+        vel_dash = max(vel * 2.6, 8)
+        dx = round(ux * vel_dash)
+        dy = round(uy * vel_dash)
         mov = True
-    elif teclas[pygame.K_s] or teclas[pygame.K_DOWN]:
-        dy += vel
-        jugdatos["dir"] = "abajo"
-        mov = True
+    else:
+        jugdatos["dash"] = False
+        vel_actual = max(1, int(vel * 0.35)) if jugdatos["ataq"] else vel
 
-    if teclas[pygame.K_a] or teclas[pygame.K_LEFT]:
-        dx -= vel
-        jugdatos["dir"] = "izquierda"
-        mov = True
-    elif teclas[pygame.K_d] or teclas[pygame.K_RIGHT]:
-        dx += vel
-        jugdatos["dir"] = "derecha"
-        mov = True
+        if teclas[pygame.K_w] or teclas[pygame.K_UP]:
+            dy -= vel_actual
+            if not jugdatos["ataq"]:
+                jugdatos["dir"] = "arriba"
+            mov = True
+        elif teclas[pygame.K_s] or teclas[pygame.K_DOWN]:
+            dy += vel_actual
+            if not jugdatos["ataq"]:
+                jugdatos["dir"] = "abajo"
+            mov = True
+
+        if teclas[pygame.K_a] or teclas[pygame.K_LEFT]:
+            dx -= vel_actual
+            if not jugdatos["ataq"]:
+                jugdatos["dir"] = "izquierda"
+            jugdatos["lado_x"] = -1
+            mov = True
+        elif teclas[pygame.K_d] or teclas[pygame.K_RIGHT]:
+            dx += vel_actual
+            if not jugdatos["ataq"]:
+                jugdatos["dir"] = "derecha"
+            jugdatos["lado_x"] = 1
+            mov = True
 
     # Movimiento en eje X con colisiones y deslizamiento pixel-perfect
     if dx != 0:
@@ -983,46 +1633,166 @@ def moverjugador(jugdatos, teclas, ancho, alto, mapa=1, obstaculos=None):
         spr = jugdatos["sprs"][jugdatos["dir"]][idx]
     jugdatos["hitbox"] = creahit(spr, rect.topleft)
 
-    if mov:
+    if mov and not jugdatos.get("dash"):
         jugdatos["frame"] = (jugdatos["frame"] + 0.15) % 4
-    else:
+    elif not mov:
         jugdatos["frame"] = 1.0
 
+def dibujar_sombra_entidad(pantalla, x, y, ancho):
+    ancho = max(8, int(ancho))
+    sombra = _SOMBRAS.get(ancho)
+    if sombra is None:
+        sombra = pygame.Surface((ancho, max(5, ancho // 3)), pygame.SRCALPHA)
+        pygame.draw.ellipse(sombra, (0, 0, 0, 90), sombra.get_rect())
+        _SOMBRAS[ancho] = sombra
+    pantalla.blit(sombra, (int(x - ancho / 2), int(y - sombra.get_height() / 2)))
+
+def _obtener_iconos_drops_y_balas(alto_pantalla):
+    if alto_pantalla not in _CACHE_DROPS:
+        tam = max(18, int(alto_pantalla * 0.032))
+        drops_ic = {}
+        for nombre in ("peso", "pancho", "bala"):
+            img = pygame.image.load(f"Sprites/Botones/{nombre}.png").convert_alpha()
+            rec = img.subsurface(img.get_bounding_rect()).copy()
+            esc = tam / max(1, rec.get_height())
+            drops_ic[nombre] = pygame.transform.smoothscale(rec, (max(10, int(rec.get_width() * esc)), tam))
+        drops_ic["balas"] = drops_ic["bala"]
+        _CACHE_DROPS[alto_pantalla] = drops_ic
+
+    if alto_pantalla not in _CACHE_BALAS:
+        img_b = pygame.image.load("Sprites/Botones/bala.png").convert_alpha()
+        rec_b = img_b.subsurface(img_b.get_bounding_rect()).copy()
+        tam_b = max(16, int(alto_pantalla * 0.028))
+        esc_b = tam_b / max(1, max(rec_b.get_width(), rec_b.get_height()))
+        base_b = pygame.transform.smoothscale(rec_b, (max(8, int(rec_b.get_width() * esc_b)), max(8, int(rec_b.get_height() * esc_b))))
+        base_b = pygame.transform.rotate(base_b, -63)
+        _CACHE_BALAS[alto_pantalla] = {i: pygame.transform.rotate(base_b, i * 5) for i in range(72)}
+
+    return _CACHE_DROPS[alto_pantalla], _CACHE_BALAS[alto_pantalla]
+
 def dibujarjuego(pantalla, mapagraf, jugdatos, vidas, objetivos, mostrarvida=True, proys=None, camara=(0, 0), escudos=None):
+    ahora = pygame.time.get_ticks()
+    alto_pant = pantalla.get_height()
     cx, cy = camara
+    if ahora < jugdatos.get("shake_hasta", 0):
+        cx += random.randint(-5, 5)
+        cy += random.randint(-5, 5)
+
     pantalla.blit(mapagraf, (-cx, -cy))
-    for objetivo in objetivos:
-        if isinstance(objetivo, dict):
-            if objetivo["ataq"]:
-                spr = objetivo["sprataq"][objetivo["dir"]][objetivo["fraataq"]]
-                if pygame.time.get_ticks() < objetivo["golpe_hasta"]:
-                    spr = objetivo["sprataqrojos"][objetivo["dir"]][objetivo["fraataq"]]
-            else:
-                spr = objetivo["sprs"][objetivo["dir"]][int(objetivo["frame"])]
-                if pygame.time.get_ticks() < objetivo["golpe_hasta"]:
-                    spr = objetivo["sprrojos"][objetivo["dir"]][int(objetivo["frame"])]
-            pantalla.blit(spr, (objetivo["rect"].x - cx, objetivo["rect"].y - cy))
+    iconos_drops, balas_rot = _obtener_iconos_drops_y_balas(alto_pant)
+
+    # Dibujar drops en el suelo con sombra y rebote
+    for d in jugdatos.get("drops", []):
+        edad = ahora - d["inicio"]
+        restante = d["vida_ms"] - edad
+        if restante < 2500 and (ahora // 100) % 2 == 0:
+            continue
+        ic = iconos_drops.get(d["tipo"], iconos_drops["peso"])
+        rebote = math.sin(edad * 0.006) * 3.5
+        dx_p = int(d["x"] - cx)
+        dy_p = int(d["y"] - cy)
+        dibujar_sombra_entidad(pantalla, dx_p, dy_p, ic.get_width() * 0.9)
+        pantalla.blit(ic, ic.get_rect(midbottom=(dx_p, int(dy_p - 4 + rebote))))
+
+    # Ordenar entidades por profundidad (Y-sorting por la base de los pies)
+    entidades = [(jugdatos["rect"].bottom, "jugador", jugdatos)]
+    for obj in objetivos:
+        if isinstance(obj, dict):
+            entidades.append((obj["rect"].bottom, "enemigo", obj))
         else:
-            rect_dibujo = objetivo.move(-cx, -cy)
+            entidades.append((obj.bottom, "rect", obj))
+    entidades.sort(key=lambda item: item[0])
+
+    tam_txt = max(18, int(alto_pant * 0.025))
+    if tam_txt not in _fuentes_recursos:
+        _fuentes_recursos[tam_txt] = pygame.font.Font(None, tam_txt)
+    fuente_ent = _fuentes_recursos[tam_txt]
+
+    for _, tipo_ent, obj in entidades:
+        if tipo_ent == "rect":
+            rect_dibujo = obj.move(-cx, -cy)
             pygame.draw.rect(pantalla, (120, 55, 35), rect_dibujo, border_radius=6)
-    if jugdatos["ataq"]:
-        if pygame.time.get_ticks() < jugdatos["golpe_hasta"]:
-            spr = jugdatos["sprataqrojos"][jugdatos["dirataq"]][jugdatos["fraataq"]]
-        else:
-            spr = jugdatos["sprataq"][jugdatos["dirataq"]][jugdatos["fraataq"]]
-    else:
-        d = jugdatos["dir"]
-        secuencia = [0, 1, 2, 1]
-        idx = secuencia[int(jugdatos["frame"]) % 4]
-        if pygame.time.get_ticks() < jugdatos["golpe_hasta"]:
-            spr = jugdatos["sprrojos"][d][idx]
-        else:
-            spr = jugdatos["sprs"][d][idx]
-    pantalla.blit(spr, (jugdatos["rect"].x - cx, jugdatos["rect"].y - cy))
+        elif tipo_ent == "enemigo":
+            dibujar_sombra_entidad(pantalla, obj["rect"].centerx - cx, obj["rect"].bottom - cy, obj["rect"].width * 0.85)
+            if obj["ataq"]:
+                spr = obj["sprataq"][obj["dir"]][obj["fraataq"]]
+                if ahora < obj["golpe_hasta"]:
+                    spr = obj["sprataqrojos"][obj["dir"]][obj["fraataq"]]
+            else:
+                spr = obj["sprs"][obj["dir"]][int(obj["frame"]) % 3]
+                if ahora < obj["golpe_hasta"]:
+                    spr = obj["sprrojos"][obj["dir"]][int(obj["frame"]) % 3]
+            rx = obj["rect"].x - cx
+            ry = obj["rect"].y - cy
+            pantalla.blit(spr, (rx, ry))
+
+            # Barra de vida sobre el enemigo (si fue dañado o si es el jefe)
+            v_max = obj.get("vida_max", 3)
+            v_act = max(0, obj.get("vida", 0))
+            es_jefe = obj.get("tipo") == "jefe"
+            if (v_act < v_max or es_jefe) and v_act > 0:
+                ancho_b = max(28, int(obj["rect"].width * 0.95))
+                barra = pygame.Rect(int(obj["rect"].centerx - cx - ancho_b // 2), int(ry - 9), ancho_b, 5)
+                pygame.draw.rect(pantalla, (40, 0, 0), barra)
+                relleno = barra.copy()
+                relleno.width = max(0, int(ancho_b * (v_act / max(1, v_max))))
+                pygame.draw.rect(pantalla, (230, 60, 60), relleno)
+                pygame.draw.rect(pantalla, (0, 0, 0), barra, 1)
+                if es_jefe:
+                    lbl_j = fuente_ent.render("EL JEFE", True, (255, 215, 60))
+                    sombra_j = fuente_ent.render("EL JEFE", True, (0, 0, 0))
+                    rj = lbl_j.get_rect(midbottom=(barra.centerx, barra.top - 2))
+                    pantalla.blit(sombra_j, rj.move(1, 1))
+                    pantalla.blit(lbl_j, rj)
+        elif tipo_ent == "jugador":
+            dibujar_sombra_entidad(pantalla, obj["rect"].centerx - cx, obj["rect"].bottom - cy, obj["rect"].width * 0.85)
+            if obj.get("dash") and ahora < obj.get("dash_hasta", 0) and "sprdash" in obj:
+                lado_d = "derecha" if obj.get("lado_x", 1) >= 0 else "izquierda"
+                progreso_d = (ahora - obj.get("dash_inicio", ahora)) / max(1, obj.get("dash_dur", 230))
+                idx_d = max(0, min(7, int(progreso_d * 8)))
+                spr_j = obj["sprdash"][lado_d][idx_d]
+                rj = spr_j.get_rect(midbottom=(obj["rect"].centerx - cx, obj["rect"].bottom - cy))
+                pantalla.blit(spr_j, rj)
+            else:
+                if obj["ataq"]:
+                    if ahora < obj["golpe_hasta"]:
+                        spr_j = obj["sprataqrojos"][obj["dirataq"]][obj["fraataq"]]
+                    else:
+                        spr_j = obj["sprataq"][obj["dirataq"]][obj["fraataq"]]
+                else:
+                    d = obj["dir"]
+                    secuencia = [0, 1, 2, 1]
+                    idx = secuencia[int(obj["frame"]) % 4]
+                    if ahora < obj["golpe_hasta"]:
+                        spr_j = obj["sprrojos"][d][idx]
+                    else:
+                        spr_j = obj["sprs"][d][idx]
+                pantalla.blit(spr_j, (obj["rect"].x - cx, obj["rect"].y - cy))
+
+    # Dibujar proyectiles / balas rotadas
     for proy in proys or []:
-        color = (255, 230, 90) if proy.get("lado") == "pistola" else (235, 85, 75) if proy.get("lado") == "enemigo" else (250, 250, 150)
+        if proy.get("invisible"):
+            continue
         rect_proy = proy["rect"].move(-cx, -cy)
-        pygame.draw.ellipse(pantalla, color, rect_proy)
-        pygame.draw.ellipse(pantalla, (35, 30, 20), rect_proy, 1)
+        if proy.get("lado") == "pistola" and "angulo" in proy:
+            spr_bala = balas_rot[round(proy["angulo"] / 5) % 72]
+            pantalla.blit(spr_bala, spr_bala.get_rect(center=rect_proy.center))
+        else:
+            color = (255, 230, 90) if proy.get("lado") == "pistola" else (235, 85, 75) if proy.get("lado") == "enemigo" else (250, 250, 150)
+            pygame.draw.ellipse(pantalla, color, rect_proy)
+            pygame.draw.ellipse(pantalla, (35, 30, 20), rect_proy, 1)
+
+    # Dibujar chispas de impacto
+    for c in jugdatos.get("chispas", []):
+        pygame.draw.circle(pantalla, c["color"], (int(c["x"] - cx), int(c["y"] - cy)), c["radio"])
+
+    # Dibujar textos flotantes (-daño, +$pesos, +vida, etc.)
+    for t in jugdatos.get("textos", []):
+        img_t = fuente_ent.render(t["texto"], True, t["color"])
+        sombra_t = fuente_ent.render(t["texto"], True, (0, 0, 0))
+        rt = img_t.get_rect(midbottom=(int(t["x"] - cx), int(t["y"] - cy)))
+        pantalla.blit(sombra_t, rt.move(1, 1))
+        pantalla.blit(img_t, rt)
+
     if mostrarvida:
         dibujarvida(pantalla, vidas, jugdatos, escudos=escudos)
