@@ -52,12 +52,13 @@ vida, puntos, oleada, pesos, panchos, pistola, posicion_mc, mapa = fn.cargardat(
 jugdatos = fn.crearjugador(ancho, alto)
 jugdatos["vida"] = vida
 jugdatos["pesos"] = pesos
+fn.cambiar_escala_jugador(jugdatos, ancho, alto, mapa=mapa)
 w_ini = ancho_mapa2 if mapa == 2 else ancho
 h_ini = alto_mapa2 if mapa == 2 else alto
 fn.ajustapos(jugdatos, posicion_mc, w_ini, h_ini, mapa)
 vidas = fn.cargarvidas(alto)
 bfuentetitulo, bfontederrota, botonesderrota = fn.bderrota(ancho, alto)
-enemigos = fn.crearene(ancho_mapa2, alto_mapa2, min(oleada + 2, 20), oleada) if mapa == 2 else []
+enemigos = fn.crearene(ancho_mapa2, alto_mapa2, min(8 + oleada * 3, 40), oleada, alto_pantalla=alto) if mapa == 2 else []
 proys = []
 rect_pancho_hud = None
 reloj = pygame.time.Clock()
@@ -139,11 +140,12 @@ while jugando:
                             jugdatos = fn.crearjugador(ancho, alto)
                             jugdatos["vida"] = vida
                             jugdatos["pesos"] = pesos
+                            fn.cambiar_escala_jugador(jugdatos, ancho, alto, mapa=mapa)
                             w_mapa = ancho_mapa2 if mapa == 2 else ancho
                             h_mapa = alto_mapa2 if mapa == 2 else alto
                             fn.ajustapos(jugdatos, posicion_mc, w_mapa, h_mapa, mapa)
                             estado = "juego" if mapa == 1 else "continuara" if mapa == 2 else "bazar"
-                            enemigos = fn.crearene(ancho_mapa2, alto_mapa2, min(oleada + 2, 20), oleada) if mapa == 2 else []
+                            enemigos = fn.crearene(ancho_mapa2, alto_mapa2, min(8 + oleada * 3, 40), oleada, alto_pantalla=alto) if mapa == 2 else []
                             proys = []
                             transicion = {"estado": "andy01" if mapa == "bazar" else "ninguno", "inicio": pygame.time.get_ticks()}
                             mapagraf = fn.cargarmapa(ancho, alto)
@@ -244,6 +246,7 @@ while jugando:
                     if b["rect"].collidepoint(mouse):
                         if b["accion"] == "jugar":
                             jugdatos = fn.crearjugador(ancho, alto)
+                            fn.cambiar_escala_jugador(jugdatos, ancho, alto, mapa=1)
                             vida = jugdatos["vida"]
                             puntos = 0
                             oleada = 1
@@ -302,7 +305,8 @@ while jugando:
         elif jugdatos["rect"].right >= ancho:
             estado = "continuara"
             mapa = 2
-            enemigos = fn.crearene(ancho_mapa2, alto_mapa2, min(oleada + 2, 20), oleada)
+            fn.cambiar_escala_jugador(jugdatos, ancho, alto, mapa=2)
+            enemigos = fn.crearene(ancho_mapa2, alto_mapa2, min(8 + oleada * 3, 40), oleada, alto_pantalla=alto)
             proys = []
             jugdatos["rect"].left = 0
             jugdatos["rect"].centery = int(jugdatos["rect"].centery * (alto_mapa2 / alto))
@@ -381,6 +385,7 @@ while jugando:
                 oleada += 1
             mapa = 1
             estado = "victoria" if oleada_completada else "juego"
+            fn.cambiar_escala_jugador(jugdatos, ancho, alto, mapa=1)
             jugdatos["rect"].left = 0
             jugdatos["rect"].centery = int(jugdatos["rect"].centery * (alto / alto_mapa2))
             enemigos = []

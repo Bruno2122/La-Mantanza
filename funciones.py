@@ -71,21 +71,51 @@ def obtener_obstaculos(mapa, ancho, alto):
     if mapa == 2:
         return [
             # Vías de tren y muro superior
-            pygame.Rect(0, 0, ancho, int(alto * 0.112)),
+            pygame.Rect(0, 0, ancho, int(alto * 0.110)),
             # Cancha de fútbol (alambrado perimetral)
-            pygame.Rect(int(ancho * 0.59), int(alto * 0.15), int(ancho * 0.22), int(alto * 0.20)),
+            pygame.Rect(int(ancho * 0.593), int(alto * 0.145), int(ancho * 0.218), int(alto * 0.205)),
             # Torre de agua y galpón superior derecho
-            pygame.Rect(int(ancho * 0.86), int(alto * 0.08), int(ancho * 0.14), int(alto * 0.17)),
+            pygame.Rect(int(ancho * 0.860), int(alto * 0.075), int(ancho * 0.140), int(alto * 0.170)),
             # Almacén La Matanza (edificio, contenedor y alambrado inferior derecho)
-            pygame.Rect(int(ancho * 0.89), int(alto * 0.38), int(ancho * 0.11), int(alto * 0.40)),
+            pygame.Rect(int(ancho * 0.890), int(alto * 0.375), int(ancho * 0.110), int(alto * 0.405)),
             # Canal / zanjón de agua inferior
-            pygame.Rect(0, int(alto * 0.87), ancho, int(alto * 0.13)),
+            pygame.Rect(0, int(alto * 0.875), ancho, int(alto * 0.125)),
             # Cartel de Argentina a la izquierda
-            pygame.Rect(int(ancho * 0.11), int(alto * 0.44), int(ancho * 0.10), int(alto * 0.08)),
+            pygame.Rect(int(ancho * 0.110), int(alto * 0.440), int(ancho * 0.103), int(alto * 0.080)),
             # Valla de chapa inferior izquierda
-            pygame.Rect(int(ancho * 0.08), int(alto * 0.80), int(ancho * 0.10), int(alto * 0.07)),
+            pygame.Rect(int(ancho * 0.080), int(alto * 0.800), int(ancho * 0.100), int(alto * 0.070)),
             # Estructura / torre pequeña superior izquierda
-            pygame.Rect(int(ancho * 0.23), int(alto * 0.10), int(ancho * 0.04), int(alto * 0.12)),
+            pygame.Rect(int(ancho * 0.235), int(alto * 0.100), int(ancho * 0.035), int(alto * 0.120)),
+            # Refugio / parada de colectivo a la izquierda
+            pygame.Rect(int(ancho * 0.090), int(alto * 0.285), int(ancho * 0.030), int(alto * 0.045)),
+            # Tendedero de ropa abajo centro
+            pygame.Rect(int(ancho * 0.490), int(alto * 0.700), int(ancho * 0.060), int(alto * 0.050)),
+            # Canchita de cemento / banco roto al sur de la cancha
+            pygame.Rect(int(ancho * 0.615), int(alto * 0.425), int(ancho * 0.085), int(alto * 0.115)),
+
+            # --- ÁRBOLES (colisión SOLO en la base/tronco; arbustos ignorados) ---
+            # Árbol central solitario
+            pygame.Rect(int(ancho * 0.446), int(alto * 0.475), int(ancho * 0.022), int(alto * 0.020)),
+            # Árbol medio-izquierda
+            pygame.Rect(int(ancho * 0.278), int(alto * 0.370), int(ancho * 0.025), int(alto * 0.020)),
+            # Árbol superior-izquierda
+            pygame.Rect(int(ancho * 0.171), int(alto * 0.260), int(ancho * 0.025), int(alto * 0.020)),
+            # Árbol junto al cartel Argentina
+            pygame.Rect(int(ancho * 0.210), int(alto * 0.395), int(ancho * 0.025), int(alto * 0.020)),
+            # Árbol abajo izquierda
+            pygame.Rect(int(ancho * 0.177), int(alto * 0.745), int(ancho * 0.022), int(alto * 0.020)),
+            # Árbol abajo centro-izquierda
+            pygame.Rect(int(ancho * 0.340), int(alto * 0.815), int(ancho * 0.025), int(alto * 0.020)),
+            # Árbol junto a parada de colectivo
+            pygame.Rect(int(ancho * 0.089), int(alto * 0.130), int(ancho * 0.022), int(alto * 0.020)),
+            # Árbol entre cartel y torre de agua izquierda
+            pygame.Rect(int(ancho * 0.309), int(alto * 0.095), int(ancho * 0.022), int(alto * 0.020)),
+            # Árboles al este del centro
+            pygame.Rect(int(ancho * 0.537), int(alto * 0.585), int(ancho * 0.022), int(alto * 0.020)),
+            pygame.Rect(int(ancho * 0.661), int(alto * 0.665), int(ancho * 0.022), int(alto * 0.020)),
+            # Árboles cerca del almacén
+            pygame.Rect(int(ancho * 0.843), int(alto * 0.360), int(ancho * 0.025), int(alto * 0.020)),
+            pygame.Rect(int(ancho * 0.853), int(alto * 0.735), int(ancho * 0.025), int(alto * 0.020)),
         ]
     else:
         return [
@@ -130,7 +160,7 @@ def ajustapos(jugdatos, posicion_mc, ancho, alto, mapa):
 def crearpuerta(ancho, alto):
     return pygame.Rect(int(ancho * 0.435), int(alto * 0.32), int(ancho * 0.06), int(alto * 0.08))
 
-def cargarmapa2(ancho, alto, escala=1.6):
+def cargarmapa2(ancho, alto, escala=2.4):
     img = pygame.image.load("Sprites/mapa2n.jpeg")
     w = int(ancho * escala)
     h = int(alto * escala)
@@ -172,8 +202,11 @@ def rojospr(spr):
     img.fill((255, 70, 70, 255), special_flags=pygame.BLEND_RGBA_MULT)
     return img
 
-def crearene(ancho, alto, cantidad=1, oleada=1):
-    hjug = int(alto * 0.125)
+def crearene(ancho, alto, cantidad=1, oleada=1, alto_pantalla=None):
+    if alto_pantalla is None:
+        alto_pantalla = int(alto / 2.4)
+    # En mapa 2 los enemigos tienen exactamente la misma escala que el personaje jugable
+    hjug = int(alto_pantalla * 0.075)
     wjug = int(hjug * (52 / 96))
     sec = {
         "abajo": [0, 1, 2],
@@ -228,7 +261,7 @@ def crearene(ancho, alto, cantidad=1, oleada=1):
             "ultfra": 0,
             "ultmov": 0,
             "proximoataq": 0,
-            "vel": max(1, int(alto * 0.005 * (1.3 if oleada >= 15 else 1.0)))
+            "vel": max(1, int(alto_pantalla * 0.0040 * (1.3 if oleada >= 15 else 1.0)))
         })
     return enemigos
 
@@ -682,26 +715,43 @@ def actualizarataq(jugdatos):
         jugdatos["fraataq"] = 0
 
 def crearjugador(ancho, alto):
-    hjug = int(alto * 0.125)
-    wjug = int(hjug * (52 / 96))
+    # Escala normal para mapa 1 (Bazar, ciudad)
+    hjug1 = int(alto * 0.125)
+    wjug1 = int(hjug1 * (52 / 96))
     xjug = ancho // 2
     yjug = int(alto * 0.50)
-    rectjug = pygame.Rect(xjug, yjug, wjug, hjug)
-    vel = int(alto * 0.009)
-    sprs = cargarsprites(wjug, hjug)
-    sprataq = cargarsprataq(wjug, hjug)
-    hitbox = creahit(sprs["abajo"][0], rectjug.topleft)
-    sprrojos = {d: [rojospr(spr) for spr in lista] for d, lista in sprs.items()}
-    sprataqrojos = {d: [rojospr(spr) for spr in lista] for d, lista in sprataq.items()}
+    rectjug = pygame.Rect(xjug, yjug, wjug1, hjug1)
+    vel1 = int(alto * 0.009)
+
+    sprs1 = cargarsprites(wjug1, hjug1)
+    sprataq1 = cargarsprataq(wjug1, hjug1)
+    sprrojos1 = {d: [rojospr(spr) for spr in lista] for d, lista in sprs1.items()}
+    sprataqrojos1 = {d: [rojospr(spr) for spr in lista] for d, lista in sprataq1.items()}
+
+    # Escala reducida para mapa 2 (zona de oleadas grande con mayor zoom)
+    hjug2 = int(alto * 0.075)
+    wjug2 = int(hjug2 * (52 / 96))
+    vel2 = max(2, int(alto * 0.007))
+    sprs2 = cargarsprites(wjug2, hjug2)
+    sprataq2 = cargarsprataq(wjug2, hjug2)
+    sprrojos2 = {d: [rojospr(spr) for spr in lista] for d, lista in sprs2.items()}
+    sprataqrojos2 = {d: [rojospr(spr) for spr in lista] for d, lista in sprataq2.items()}
+
+    hitbox = creahit(sprs1["abajo"][0], rectjug.topleft)
 
     jugdatos = {
         "rect": rectjug,
         "hitbox": hitbox,
-        "vel": vel,
-        "sprs": sprs,
-        "sprrojos": sprrojos,
-        "sprataq": sprataq,
-        "sprataqrojos": sprataqrojos,
+        "vel": vel1,
+        "sprs": sprs1,
+        "sprrojos": sprrojos1,
+        "sprataq": sprataq1,
+        "sprataqrojos": sprataqrojos1,
+        "_escalas": {
+            1: {"w": wjug1, "h": hjug1, "vel": vel1, "sprs": sprs1, "sprrojos": sprrojos1, "sprataq": sprataq1, "sprataqrojos": sprataqrojos1},
+            2: {"w": wjug2, "h": hjug2, "vel": vel2, "sprs": sprs2, "sprrojos": sprrojos2, "sprataq": sprataq2, "sprataqrojos": sprataqrojos2},
+        },
+        "mapa_escala": 1,
         "dir": "abajo",
         "frame": 1.0,
         "ataq": False,
@@ -713,6 +763,24 @@ def crearjugador(ancho, alto):
         "golpe_hasta": 0
     }
     return jugdatos
+
+def cambiar_escala_jugador(jugdatos, ancho, alto, mapa=1):
+    id_mapa = 2 if mapa == 2 else 1
+    if jugdatos.get("mapa_escala") == id_mapa:
+        return
+    esc = jugdatos["_escalas"][id_mapa]
+    centro = jugdatos["rect"].center
+    jugdatos["rect"].size = (esc["w"], esc["h"])
+    jugdatos["rect"].center = centro
+    jugdatos["vel"] = esc["vel"]
+    jugdatos["sprs"] = esc["sprs"]
+    jugdatos["sprrojos"] = esc["sprrojos"]
+    jugdatos["sprataq"] = esc["sprataq"]
+    jugdatos["sprataqrojos"] = esc["sprataqrojos"]
+    jugdatos["mapa_escala"] = id_mapa
+
+    spr = jugdatos["sprs"][jugdatos["dir"]][0]
+    jugdatos["hitbox"] = creahit(spr, jugdatos["rect"].topleft)
 
 def moverjugador(jugdatos, teclas, ancho, alto, mapa=1, obstaculos=None):
     if jugdatos["ataq"]:
