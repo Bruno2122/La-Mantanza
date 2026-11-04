@@ -351,8 +351,9 @@ while jugando:
             mapa = 2
             fn.escjug(jdat, anc, alt, mapa=2)
             proys = []
-            jdat["rect"].left = 0
-            jdat["rect"].centery = int(jdat["rect"].centery * (alt_m2 / alt))
+            jdat["rect"].left = max(0, int(anc_m2 * 0.02))
+            # Limitamos la posicion Y al rango caminable del mapa 2 (entre 20% y 80% de la altura)
+            jdat["rect"].centery = max(int(alt_m2 * 0.20), min(int(alt_m2 * 0.80), int(jdat["rect"].centery * (alt_m2 / alt))))
             fn.ajustapos(jdat, jdat["rect"].topleft, anc_m2, alt_m2, mapa)
             enes = fn.crearene(anc_m2, alt_m2, min(8 + ole * 3, 40), ole, alt_p=alt, jdat=jdat)
         else:
@@ -511,8 +512,9 @@ while jugando:
             mapa = 1
             estado = "victoria" if ole_fin else "juego"
             fn.escjug(jdat, anc, alt, mapa=1)
-            jdat["rect"].left = 0
-            jdat["rect"].centery = int(jdat["rect"].centery * (alt / alt_m2))
+            jdat["rect"].left = max(0, int(anc * 0.02))
+            # Limitamos la posicion Y al rango caminable del mapa 1 (entre 42% y 54% de la altura)
+            jdat["rect"].centery = max(int(alt * 0.42), min(int(alt * 0.54), int(jdat["rect"].centery * (alt / alt_m2))))
             enes, proys, jdat["drops"] = [], [], []
             mgraf = fn.cargarmapa(anc, alt)
             fn.ajustapos(jdat, jdat["rect"].topleft, anc, alt, mapa)
