@@ -31,6 +31,10 @@ TIPOS_ENE = {
         "hp": 320, "vel_mult": 0.85, "daño": 1.0, "esc": 2.1, "tint": ("add", (45, 5, 0)),
         "pts": 200, "pesos": (180, 260), "alc_m": 1.35, "esp": 1050
     },
+    "barracas": {
+        "hp": 24, "vel_mult": 0.95, "daño": 0.25, "esc": 1.0, "tint": None,
+        "pts": 15, "pesos": (20, 35), "alc_m": 3.8, "esp": 1350, "distancia": True
+    },
 }
 
 def cargardat(anc, alt):
@@ -372,16 +376,36 @@ def _sprsene(tipo, alt_p):
     }
     sprs = {}
     sprat = {}
-    for d, nums in sec.items():
-        sprs[d] = []
-        sprat[d] = []
-        for n in nums:
-            img = pygame.image.load(f"Sprites/Boca/Boca{n:03d}.png").convert_alpha()
-            img_e = tintarsurf(pygame.transform.scale(img, (wj, hj)), cfg["tint"])
-            sprs[d].append(img_e)
-            imga = pygame.image.load(f"Sprites/Boca/BA/BA{n:02d}.png").convert_alpha()
-            imga_e = tintarsurf(pygame.transform.scale(imga, (wj, hj)), cfg["tint"])
-            sprat[d].append(imga_e)
+
+    if tipo == "barracas":
+        # Cargar sprites de caminar propios de Barracas
+        for d, nums in sec.items():
+            sprs[d] = []
+            for n in nums:
+                img = pygame.image.load(f"Sprites/Barracas/Barracas{n:03d}.png").convert_alpha()
+                sprs[d].append(pygame.transform.scale(img, (wj, hj)))
+
+        # Cargar animacion de ataque (4 frames de lanzamiento de piedra)
+        sprat_der = [pygame.image.load(f"Sprites/Barracas/BA/BA_der_{i}.png").convert_alpha() for i in range(4)]
+        sprat_izq = [pygame.image.load(f"Sprites/Barracas/BA/BA_izq_{i}.png").convert_alpha() for i in range(4)]
+        sprat_der_sc = [pygame.transform.scale(im, (max(10, int(im.get_width() * (hj / 79))), hj)) for im in sprat_der]
+        sprat_izq_sc = [pygame.transform.scale(im, (max(10, int(im.get_width() * (hj / 79))), hj)) for im in sprat_izq]
+
+        sprat["derecha"] = sprat_der_sc
+        sprat["izquierda"] = sprat_izq_sc
+        sprat["abajo"] = sprat_der_sc
+        sprat["arriba"] = sprat_izq_sc
+    else:
+        for d, nums in sec.items():
+            sprs[d] = []
+            sprat[d] = []
+            for n in nums:
+                img = pygame.image.load(f"Sprites/Boca/Boca{n:03d}.png").convert_alpha()
+                img_e = tintarsurf(pygame.transform.scale(img, (wj, hj)), cfg["tint"])
+                sprs[d].append(img_e)
+                imga = pygame.image.load(f"Sprites/Boca/BA/BA{n:02d}.png").convert_alpha()
+                imga_e = tintarsurf(pygame.transform.scale(imga, (wj, hj)), cfg["tint"])
+                sprat[d].append(imga_e)
 
     sprr = {d: [blancsurf(rojospr(img)) for img in imgs] for d, imgs in sprs.items()}
     spratr = {d: [blancsurf(rojospr(img)) for img in imgs] for d, imgs in sprat.items()}
@@ -391,8 +415,9 @@ def _sprsene(tipo, alt_p):
 
 def colaoleada(ole):
     tot = min(45, 5 + 3 * ole)
-    p_tanq = 0.0 if ole < 4 else min(0.30, 0.10 + 0.02 * (ole - 4))
-    p_barr = 0.0 if ole < 2 else min(0.40, 0.20 + 0.03 * (ole - 2))
+    p_tanq = 0.0 if ole < 4 else min(0.25, 0.08 + 0.02 * (ole - 4))
+    p_barr = 0.0 if ole < 2 else min(0.35, 0.15 + 0.03 * (ole - 2))
+    p_barracas = 0.0 if ole < 2 else min(0.30, 0.15 + 0.02 * (ole - 2))
     cola = []
     for _ in range(tot):
         r = random.random()
@@ -400,6 +425,8 @@ def colaoleada(ole):
             cola.append("tanque")
         elif r < p_tanq + p_barr:
             cola.append("barra")
+        elif r < p_tanq + p_barr + p_barracas:
+            cola.append("barracas")
         else:
             cola.append("hincha")
     jefes = ole // 5 if ole % 5 == 0 else 0
@@ -616,6 +643,26 @@ def proyene(ene, jdat):
     ene["proximoataq"] = pygame.time.get_ticks() + ene.get("esp_ms", 850)
 
     h = ene["hitbox"]
+    if ene.get("tipo") == "barracas":
+        dist = math.hypot(dx, dy)
+        ux, uy = (dx / dist, dy / dist) if dist > 0 else (1.0, 0.0)
+        v = max(7, int(h.height * 0.19))
+        tam = max(10, int(h.height * 0.22))
+        proy = pygame.Rect(0, 0, tam, tam)
+        proy.center = (int(h.centerx + ux * 12), int(h.centery + uy * 12))
+        return {
+            "rect": proy,
+            "dx": ux * v,
+            "dy": uy * v,
+            "alcance": max(dist + 60, int(h.height * 4.2)),
+            "recorrido": 0,
+            "lado": "enemigo",
+            "es_piedra": True,
+            "angulo": math.degrees(math.atan2(-uy, ux)),
+            "daño": ene.get("daño", 0.25),
+            "orig": ene
+        }
+
     tam = max(8, int(h.height * 0.16))
     v = max(6, int(h.height * 0.18))
     proy = pygame.Rect(0, 0, tam, tam)
@@ -827,18 +874,40 @@ def actualizaene(enes, jdat, proys, obs_l=None, anc=None, alt=None):
         alc_e = alc_base * ene.get("alc_m", 1.15)
 
         if ene["ataq"]:
-            if ahora - ene["ultfra"] >= 110:
+            interv_fra = 125 if ene.get("tipo") == "barracas" else 110
+            tot_fra = len(ene["sprataq"][ene["dir"]])
+            if ahora - ene["ultfra"] >= interv_fra:
                 ene["fraataq"] += 1
                 ene["ultfra"] = ahora
-                if ene["fraataq"] == 1 and not ene.get("golpe_hecho", False):
-                    ene["golpe_hecho"] = True
-                    if dist_j <= alc_e * 1.25 and ahora - jdat.get("ultdaño", -1000) >= 900:
-                        dañojug(jdat, ahora, cant=ene.get("daño", 0.5), orig=ene, anc_m=anc, alt_m=alt, obs_l=obs_l)
-                if ene["fraataq"] >= 3:
+                if ene.get("tipo") == "barracas":
+                    # Lanza la piedra en el frame 2 del lanzamiento (cuando extiende el brazo)
+                    if ene["fraataq"] == 2 and not ene.get("golpe_hecho", False):
+                        ene["golpe_hecho"] = True
+                        proys.append(proyene(ene, jdat))
+                else:
+                    if ene["fraataq"] == 1 and not ene.get("golpe_hecho", False):
+                        ene["golpe_hecho"] = True
+                        if dist_j <= alc_e * 1.25 and ahora - jdat.get("ultdaño", -1000) >= 900:
+                            dañojug(jdat, ahora, cant=ene.get("daño", 0.5), orig=ene, anc_m=anc, alt_m=alt, obs_l=obs_l)
+                if ene["fraataq"] >= tot_fra:
                     ene["ataq"] = False
                     ene["fraataq"] = 0
         elif dist_j <= alc_e and ahora >= ene["proximoataq"]:
-            proys.append(proyene(ene, jdat))
+            if ene.get("tipo") == "barracas":
+                # Inicia la animacion de lanzamiento hacia el jugador
+                dx = jcent[0] - ene["hitbox"].centerx
+                dy = jcent[1] - ene["hitbox"].centery
+                d = "derecha" if dx >= 0 else "izquierda"
+                if abs(dy) > abs(dx):
+                    d = "abajo" if dy >= 0 else "arriba"
+                ene["dir"] = d
+                ene["ataq"] = True
+                ene["golpe_hecho"] = False
+                ene["fraataq"] = 0
+                ene["ultfra"] = ahora
+                ene["proximoataq"] = ahora + ene.get("esp_ms", 1350)
+            else:
+                proys.append(proyene(ene, jdat))
         else:
             rad_fl = alc_e * ene.get("rad_m", 1.1)
             tx = jcent[0] + math.cos(ene["ang_at"]) * rad_fl
@@ -965,11 +1034,21 @@ def moverproy(proys, enes, anc, alt, jdat=None):
                 proys.remove(p)
             continue
 
-        paso = min(abs(p["dx"] or p["dy"]), p["alcance"] - p["recorrido"])
-        mx = paso if p["dx"] > 0 else -paso if p["dx"] < 0 else 0
-        my = paso if p["dy"] > 0 else -paso if p["dy"] < 0 else 0
-        p["rect"].move_ip(mx, my)
-        p["recorrido"] += paso
+        if p.get("es_piedra"):
+            v = math.hypot(p["dx"], p["dy"])
+            rest = max(0, p["alcance"] - p["recorrido"])
+            paso = min(v, rest)
+            if paso >= rest:
+                p["rect"].move_ip(round(p["dx"]), round(p["dy"]))
+            else:
+                p["rect"].move_ip(round(p["dx"] / v * paso), round(p["dy"] / v * paso))
+            p["recorrido"] += paso
+        else:
+            paso = min(abs(p["dx"] or p["dy"]), p["alcance"] - p["recorrido"])
+            mx = paso if p["dx"] > 0 else -paso if p["dx"] < 0 else 0
+            my = paso if p["dy"] > 0 else -paso if p["dy"] < 0 else 0
+            p["rect"].move_ip(mx, my)
+            p["recorrido"] += paso
         if p.get("lado") == "enemigo":
             if jdat is not None and p["rect"].colliderect(jdat["hitbox"]):
                 if ahora - jdat.get("ultdaño", -1000) >= 900:
@@ -1637,6 +1716,18 @@ def dibujarjuego(pant, mgraf, jdat, vidas, objs, mvida=True, proys=None, cam=(0,
         if p.get("lado") == "pistola" and "angulo" in p:
             s_bala = balasrot[round(p["angulo"] / 5) % 72]
             pant.blit(s_bala, s_bala.get_rect(center=rp.center))
+        elif p.get("es_piedra"):
+            if "_img_piedra" not in globals():
+                global _img_piedra
+                try:
+                    _img_piedra = pygame.image.load("Sprites/Barracas/piedra.png").convert_alpha()
+                except Exception:
+                    _img_piedra = None
+            if _img_piedra is not None:
+                pant.blit(_img_piedra, _img_piedra.get_rect(center=rp.center))
+            else:
+                pygame.draw.ellipse(pant, (140, 130, 120), rp)
+                pygame.draw.ellipse(pant, (35, 30, 25), rp, 1)
         else:
             col = (255, 230, 90) if p.get("lado") == "pistola" else ((235, 85, 75) if p.get("lado") == "enemigo" else (250, 250, 150))
             pygame.draw.ellipse(pant, col, rp)
