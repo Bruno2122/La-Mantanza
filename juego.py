@@ -5,633 +5,560 @@ import funciones as fn
 
 pygame.init()
 
-ventana = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
-ancho, alto = ventana.get_size()
-pantalla = pygame.Surface((ancho, alto))
-pantalla_ventana = pygame.Surface(ventana.get_size())
+vent = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+anc, alt = vent.get_size()
+pant = pygame.Surface((anc, alt))
+pant_vent = pygame.Surface(vent.get_size())
 pygame.display.set_caption("La Matanza Avanza")
 
-video = cv2.VideoCapture("F/trenfondo.mp4")
-if not video.isOpened():
-    video.release()
-    video = cv2.VideoCapture("trenfondo.mp4")
-anchopanel = int(ancho * 0.32)
+vid = cv2.VideoCapture("F/trenfondo.mp4")
+if not vid.isOpened():
+    vid.release()
+    vid = cv2.VideoCapture("trenfondo.mp4")
+wpan = int(anc * 0.32)
 
-panelizq, panelder = fn.capas(ancho, alto, anchopanel)
-fuentetit, fuentebtn = fn.fuentes(alto)
-t1, t2, rect1, rect2 = fn.titulos(fuentetit, anchopanel, alto)
-botones = fn.btnlista(anchopanel, alto)
+pizq, pder = fn.capas(anc, alt, wpan)
+ftit, fbtn = fn.fuentes(alt)
+t1, t2, r1, r2 = fn.titulos(ftit, wpan, alt)
+btns = fn.btnlista(wpan, alt)
 
-mapagraf = fn.cargarmapa(ancho, alto)
-mapagraf2 = fn.cargarmapa2(ancho, alto)
-ancho_mapa2 = mapagraf2.get_width()
-alto_mapa2 = mapagraf2.get_height()
-cam_x = 0
-cam_y = 0
-andy00, andy01, andy02, andy03 = fn.cargabazar(ancho, alto)
-mira = fn.cargarmira(alto)
-iconos_recursos = fn.cargariconosrecursos(alto)
-tam_pancho = int(alto * 0.11)
-pancho_tienda = pygame.transform.smoothscale(iconos_recursos["pancho"], (tam_pancho, tam_pancho))
-img_speed_full = iconos_recursos["speed_full"]
-alto_speed_tienda = int(alto * 0.135)
-ancho_speed_tienda = max(24, int(img_speed_full.get_width() * (alto_speed_tienda / img_speed_full.get_height())))
-speed_tienda = pygame.transform.smoothscale(img_speed_full, (ancho_speed_tienda, alto_speed_tienda))
-fuente_compra = pygame.font.Font(None, max(24, int(alto * 0.035)))
-fuente_compra_chica = pygame.font.Font(None, max(18, int(alto * 0.026)))
-puertabazar = fn.crearpuerta(ancho, alto)
-transicion = {"estado": "ninguno", "inicio": 0}
-mensaje_compra = ""
-carrito_pistola = 0
-carrito_panchos = 0
-carrito_speeds = 0
-mensaje_pancho = ""
-mensaje_pancho_hasta = 0
+mgraf = fn.cargarmapa(anc, alt)
+mgraf2 = fn.cargarmapa2(anc, alt)
+anc_m2 = mgraf2.get_width()
+alt_m2 = mgraf2.get_height()
+camx, camy = 0, 0
+andy00, andy01, andy02, andy03 = fn.cargabazar(anc, alt)
+mira = fn.cargarmira(alt)
+icons = fn.cargariconos(alt)
+t_pan = int(alt * 0.11)
+pan_tienda = pygame.transform.smoothscale(icons["pancho"], (t_pan, t_pan))
+img_spd_f = icons["speed_full"]
+h_spd_t = int(alt * 0.135)
+w_spd_t = max(24, int(img_spd_f.get_width() * (h_spd_t / img_spd_f.get_height())))
+spd_tienda = pygame.transform.smoothscale(img_spd_f, (w_spd_t, h_spd_t))
+f_comp = pygame.font.Font(None, max(24, int(alt * 0.035)))
+f_comp_ch = pygame.font.Font(None, max(18, int(alt * 0.026)))
+pbazar = fn.crearpuerta(anc, alt)
+trans = {"estado": "ninguno", "inicio": 0}
+msg_comp = ""
+car_pist = 0
+car_pan = 0
+car_spd = 0
+msg_pan = ""
+msg_pan_hasta = 0
 PRECIO_PISTOLA = 10
 PRECIO_PANCHO = 75
 PRECIO_SPEED = 250
-BALAS_MAXIMAS =10
-balas = BALAS_MAXIMAS
-recarga_hasta = 0
-vida, escudo, puntos, oleada, pesos, panchos, speeds, pistola, posicion_mc, mapa = fn.cargardat(ancho, alto)
-jugdatos = fn.crearjugador(ancho, alto)
-jugdatos["vida"] = vida
-jugdatos["escudo"] = escudo
-jugdatos["pesos"] = pesos
-jugdatos["puntos"] = puntos
-jugdatos["pistola"] = pistola
-fn.cambiar_escala_jugador(jugdatos, ancho, alto, mapa=mapa)
-w_ini = ancho_mapa2 if mapa == 2 else ancho
-h_ini = alto_mapa2 if mapa == 2 else alto
-fn.ajustapos(jugdatos, posicion_mc, w_ini, h_ini, mapa)
-vidas = fn.cargarvidas(alto)
-escudos = fn.cargarescudos(alto)
-bfuentetitulo, bfontederrota, botonesderrota = fn.bderrota(ancho, alto)
-enemigos = fn.crearene(ancho_mapa2, alto_mapa2, min(8 + oleada * 3, 40), oleada, alto_pantalla=alto, jugdatos=jugdatos) if mapa == 2 else []
+BMAX = 10
+balas = BMAX
+rec_hasta = 0
+vida, esc, pts, ole, pesos, panchos, spds, pist, posmc, mapa = fn.cargardat(anc, alt)
+jdat = fn.crearjug(anc, alt)
+jdat["vida"] = vida
+jdat["escudo"] = esc
+jdat["pesos"] = pesos
+jdat["puntos"] = pts
+jdat["pistola"] = pist
+fn.escjug(jdat, anc, alt, mapa=mapa)
+wini = anc_m2 if mapa == 2 else anc
+hini = alt_m2 if mapa == 2 else alt
+fn.ajustapos(jdat, posmc, wini, hini, mapa)
+vidas = fn.cargarvidas(alt)
+escudos = fn.cargarescudos(alt)
+bftit, bfontder, bder = fn.bderrota(anc, alt)
+enes = fn.crearene(anc_m2, alt_m2, min(8 + ole * 3, 40), ole, alt_p=alt, jdat=jdat) if mapa == 2 else []
 proys = []
-rect_pancho_hud = None
-rect_speed_hud = None
-reloj = pygame.time.Clock()
+r_pan_hud = None
+r_spd_hud = None
+clk = pygame.time.Clock()
 estado = "menu"
-ultimo_guardado = pygame.time.get_ticks()
+ult_guardado = pygame.time.get_ticks()
 jugando = True
 
 while jugando:
     ahora = pygame.time.get_ticks()
-    if recarga_hasta and ahora >= recarga_hasta:
-        balas = BALAS_MAXIMAS
-        recarga_hasta = 0
+    if rec_hasta and ahora >= rec_hasta:
+        balas = BMAX
+        rec_hasta = 0
 
-    if jugdatos.get("panchos_extra", 0) > 0:
-        panchos += jugdatos["panchos_extra"]
-        jugdatos["panchos_extra"] = 0
-    if jugdatos.get("balas_extra", 0) > 0:
-        balas = min(BALAS_MAXIMAS, balas + jugdatos["balas_extra"])
+    if jdat.get("panchos_extra", 0) > 0:
+        panchos += jdat["panchos_extra"]
+        jdat["panchos_extra"] = 0
+    if jdat.get("balas_extra", 0) > 0:
+        balas = min(BMAX, balas + jdat["balas_extra"])
         if balas > 0:
-            recarga_hasta = 0
-        jugdatos["balas_extra"] = 0
-    jugdatos["pistola"] = pistola
+            rec_hasta = 0
+        jdat["balas_extra"] = 0
+    jdat["pistola"] = pist
 
-    mouseventana = pygame.mouse.get_pos()
-    mouse = (
-        mouseventana[0] * ancho // ventana.get_width(),
-        mouseventana[1] * alto // ventana.get_height()
-    )
+    mvent = pygame.mouse.get_pos()
+    mouse = (mvent[0] * anc // vent.get_width(), mvent[1] * alt // vent.get_height())
     teclas = pygame.key.get_pressed()
 
-    for evento in pygame.event.get():
-        if evento.type == pygame.QUIT:
-            vida = jugdatos["vida"]
-            escudo = jugdatos.get("escudo", 0)
-            puntos = jugdatos.get("puntos", puntos)
-            posicion_mc = jugdatos["rect"].topleft
-            fn.guardardat(vida, puntos, oleada, pesos, panchos, pistola, posicion_mc, mapa, escudo=escudo, speeds=speeds)
+    for ev in pygame.event.get():
+        if ev.type == pygame.QUIT:
+            fn.guardardat(jdat["vida"], jdat.get("puntos", pts), ole, pesos, panchos, pist, jdat["rect"].topleft, mapa, esc=jdat.get("escudo", 0), spds=spds)
             jugando = False
-        elif evento.type == pygame.KEYDOWN:
-            if evento.key == pygame.K_ESCAPE:
-                if estado in ("juego", "continuara", "bazar", "derrota", "victoria"):
-                    estado = "menu"
-                else:
+        elif ev.type == pygame.KEYDOWN:
+            if ev.key == pygame.K_ESCAPE:
+                estado = "menu" if estado in ("juego", "continuara", "bazar", "derrota", "victoria") else "menu"
+                if estado == "menu" and ev.key == pygame.K_ESCAPE and not (estado in ("juego", "continuara", "bazar", "derrota", "victoria")):
                     jugando = False
-                vida = jugdatos["vida"]
-                escudo = jugdatos.get("escudo", 0)
-                puntos = jugdatos.get("puntos", puntos)
-                posicion_mc = jugdatos["rect"].topleft
-                fn.guardardat(vida, puntos, oleada, pesos, panchos, pistola, posicion_mc, mapa, escudo=escudo, speeds=speeds)
-            elif evento.key in (pygame.K_LSHIFT, pygame.K_RSHIFT, pygame.K_k):
+                fn.guardardat(jdat["vida"], jdat.get("puntos", pts), ole, pesos, panchos, pist, jdat["rect"].topleft, mapa, esc=jdat.get("escudo", 0), spds=spds)
+            elif ev.key in (pygame.K_LSHIFT, pygame.K_RSHIFT, pygame.K_k):
                 if estado in ("juego", "continuara"):
-                    fn.iniciardash(jugdatos, teclas)
-            elif evento.key == pygame.K_j:
+                    fn.inidash(jdat, teclas)
+            elif ev.key == pygame.K_j:
                 if estado == "juego":
-                    if fn.iniciarataq(jugdatos, mouse):
-                        proys.append(fn.crearproy(jugdatos))
+                    if fn.iniataq(jdat, mouse):
+                        proys.append(fn.crearproy(jdat))
                 elif estado == "continuara":
-                    mouse_mundo = (mouse[0] + cam_x, mouse[1] + cam_y)
-                    if fn.iniciarataq(jugdatos, mouse_mundo, enemigos=enemigos):
-                        proys.append(fn.crearproy(jugdatos))
-            elif evento.key == pygame.K_SPACE:
-                if estado == "juego" and mapa == 1 and jugdatos["hitbox"].colliderect(puertabazar):
+                    mmundo = (mouse[0] + camx, mouse[1] + camy)
+                    if fn.iniataq(jdat, mmundo, enes=enes):
+                        proys.append(fn.crearproy(jdat))
+            elif ev.key == pygame.K_SPACE:
+                if estado == "juego" and mapa == 1 and jdat["hitbox"].colliderect(pbazar):
                     estado = "bazar"
                     mapa = "bazar"
-                    transicion["estado"] = "negro"
-                    transicion["inicio"] = pygame.time.get_ticks()
+                    trans["estado"] = "negro"
+                    trans["inicio"] = pygame.time.get_ticks()
                 elif estado == "bazar":
                     estado = "juego"
                     mapa = 1
-                    transicion["estado"] = "ninguno"
-                    mapagraf = fn.cargarmapa(ancho, alto)
-                    jugdatos["rect"].centerx = puertabazar.centerx
-                    jugdatos["rect"].top = int(alto * 0.36)
-                    fn.ajustapos(jugdatos, jugdatos["rect"].topleft, ancho, alto, mapa)
+                    trans["estado"] = "ninguno"
+                    mgraf = fn.cargarmapa(anc, alt)
+                    jdat["rect"].centerx = pbazar.centerx
+                    jdat["rect"].top = int(alt * 0.36)
+                    fn.ajustapos(jdat, jdat["rect"].topleft, anc, alt, mapa)
                 elif estado == "juego":
-                    if fn.iniciarataq(jugdatos, mouse):
-                        proys.append(fn.crearproy(jugdatos))
+                    if fn.iniataq(jdat, mouse):
+                        proys.append(fn.crearproy(jdat))
                 elif estado == "continuara":
-                    mouse_mundo = (mouse[0] + cam_x, mouse[1] + cam_y)
-                    if fn.iniciarataq(jugdatos, mouse_mundo, enemigos=enemigos):
-                        proys.append(fn.crearproy(jugdatos))
-            elif evento.key == pygame.K_BACKSPACE and estado == "bazar" and transicion["estado"] == "andy03":
-                transicion["estado"] = "andy02"
-                transicion["inicio"] = pygame.time.get_ticks()
-                carrito_pistola = 0
-                carrito_panchos = 0
-                carrito_speeds = 0
+                    mmundo = (mouse[0] + camx, mouse[1] + camy)
+                    if fn.iniataq(jdat, mmundo, enes=enes):
+                        proys.append(fn.crearproy(jdat))
+            elif ev.key == pygame.K_BACKSPACE and estado == "bazar" and trans["estado"] == "andy03":
+                trans["estado"] = "andy02"
+                trans["inicio"] = pygame.time.get_ticks()
+                car_pist = 0
+                car_pan = 0
+                car_spd = 0
 
-        elif evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 3:
-            mouseventana = evento.pos
-            mouse = (
-                mouseventana[0] * ancho // ventana.get_width(),
-                mouseventana[1] * alto // ventana.get_height()
-            )
-            if estado == "bazar" and transicion["estado"] == "andy03":
-                slot_pistola = pygame.Rect(int(ancho * 0.145), int(alto * 0.210), int(ancho * 0.115), int(alto * 0.175))
-                slot_pancho = pygame.Rect(int(ancho * 0.334), int(alto * 0.210), int(ancho * 0.121), int(alto * 0.178))
-                slot_speed = pygame.Rect(int(ancho * 0.529), int(alto * 0.210), int(ancho * 0.128), int(alto * 0.178))
-                if slot_pancho.collidepoint(mouse) and carrito_panchos > 0:
-                    carrito_panchos -= 1
-                    mensaje_compra = ""
-                elif slot_speed.collidepoint(mouse) and carrito_speeds > 0:
-                    carrito_speeds -= 1
-                    mensaje_compra = ""
-                elif slot_pistola.collidepoint(mouse) and carrito_pistola > 0:
-                    carrito_pistola = 0
-                    mensaje_compra = ""
+        elif ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 3:
+            mvent = ev.pos
+            mouse = (mvent[0] * anc // vent.get_width(), mvent[1] * alt // vent.get_height())
+            if estado == "bazar" and trans["estado"] == "andy03":
+                s_pist = pygame.Rect(int(anc * 0.145), int(alt * 0.210), int(anc * 0.115), int(alt * 0.175))
+                s_pan = pygame.Rect(int(anc * 0.334), int(alt * 0.210), int(anc * 0.121), int(alt * 0.178))
+                s_spd = pygame.Rect(int(anc * 0.529), int(alt * 0.210), int(anc * 0.128), int(alt * 0.178))
+                if s_pan.collidepoint(mouse) and car_pan > 0:
+                    car_pan -= 1
+                    msg_comp = ""
+                elif s_spd.collidepoint(mouse) and car_spd > 0:
+                    car_spd -= 1
+                    msg_comp = ""
+                elif s_pist.collidepoint(mouse) and car_pist > 0:
+                    car_pist = 0
+                    msg_comp = ""
             elif estado == "juego":
-                if fn.iniciarataq(jugdatos, mouse):
-                    proys.append(fn.crearproy(jugdatos))
+                if fn.iniataq(jdat, mouse):
+                    proys.append(fn.crearproy(jdat))
             elif estado == "continuara":
-                mouse_mundo = (mouse[0] + cam_x, mouse[1] + cam_y)
-                if fn.iniciarataq(jugdatos, mouse_mundo, enemigos=enemigos):
-                    proys.append(fn.crearproy(jugdatos))
+                mmundo = (mouse[0] + camx, mouse[1] + camy)
+                if fn.iniataq(jdat, mmundo, enes=enes):
+                    proys.append(fn.crearproy(jdat))
 
-        elif evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
-            mouseventana = evento.pos
-            mouse = (
-                mouseventana[0] * ancho // ventana.get_width(),
-                mouseventana[1] * alto // ventana.get_height()
-            )
-            if estado in ("juego", "continuara") and rect_pancho_hud and rect_pancho_hud.collidepoint(mouse):
-                if panchos > 0 and jugdatos["vida"] < 5:
+        elif ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
+            mvent = ev.pos
+            mouse = (mvent[0] * anc // vent.get_width(), mvent[1] * alt // vent.get_height())
+            if estado in ("juego", "continuara") and r_pan_hud and r_pan_hud.collidepoint(mouse):
+                if panchos > 0 and jdat["vida"] < 5:
                     panchos -= 1
-                    jugdatos["vida"] = 5
-                    jugdatos["dano_acumulado"] = 0.0
-                    mensaje_pancho = "Vida restaurada"
-                    fn.guardardat(jugdatos["vida"], puntos, oleada, pesos, panchos, pistola, jugdatos["rect"].topleft, mapa, escudo=jugdatos.get("escudo", 0), speeds=speeds)
-                elif jugdatos["vida"] >= 5:
-                    mensaje_pancho = "Vida completa"
+                    jdat["vida"] = 5
+                    jdat["daño_acum"] = 0.0
+                    msg_pan = "Vida restaurada"
+                    fn.guardardat(jdat["vida"], pts, ole, pesos, panchos, pist, jdat["rect"].topleft, mapa, esc=jdat.get("escudo", 0), spds=spds)
+                elif jdat["vida"] >= 5:
+                    msg_pan = "Vida completa"
                 else:
-                    mensaje_pancho = "No tienes panchos"
-                mensaje_pancho_hasta = pygame.time.get_ticks() + 1400
-            elif estado in ("juego", "continuara") and rect_speed_hud and rect_speed_hud.collidepoint(mouse):
-                if speeds > 0 and jugdatos.get("escudo", 0) < 3:
-                    speeds -= 1
-                    jugdatos["escudo"] = min(3, jugdatos.get("escudo", 0) + 1)
-                    mensaje_pancho = "+1 Barra de Escudo"
-                    fn.guardardat(jugdatos["vida"], puntos, oleada, pesos, panchos, pistola, jugdatos["rect"].topleft, mapa, escudo=jugdatos.get("escudo", 0), speeds=speeds)
-                elif jugdatos.get("escudo", 0) >= 3:
-                    mensaje_pancho = "Escudo al maximo"
+                    msg_pan = "No tienes panchos"
+                msg_pan_hasta = pygame.time.get_ticks() + 1400
+            elif estado in ("juego", "continuara") and r_spd_hud and r_spd_hud.collidepoint(mouse):
+                if spds > 0 and jdat.get("escudo", 0) < 3:
+                    spds -= 1
+                    jdat["escudo"] = min(3, jdat.get("escudo", 0) + 1)
+                    msg_pan = "+1 Barra de Escudo"
+                    fn.guardardat(jdat["vida"], pts, ole, pesos, panchos, pist, jdat["rect"].topleft, mapa, esc=jdat.get("escudo", 0), spds=spds)
+                elif jdat.get("escudo", 0) >= 3:
+                    msg_pan = "Escudo al maximo"
                 else:
-                    mensaje_pancho = "No tienes Speed"
-                mensaje_pancho_hasta = pygame.time.get_ticks() + 1400
+                    msg_pan = "No tienes Speed"
+                msg_pan_hasta = pygame.time.get_ticks() + 1400
             elif estado == "menu":
-                for b in botones:
+                for b in btns:
                     if b["rect"].collidepoint(mouse):
                         if b["accion"] == "jugar":
-                            vida, escudo, puntos, oleada, pesos, panchos, speeds, pistola, posicion_mc, mapa = fn.cargardat(ancho, alto)
-                            jugdatos = fn.crearjugador(ancho, alto)
-                            jugdatos["vida"] = vida
-                            jugdatos["escudo"] = escudo
-                            jugdatos["pesos"] = pesos
-                            jugdatos["puntos"] = puntos
-                            jugdatos["pistola"] = pistola
-                            fn.cambiar_escala_jugador(jugdatos, ancho, alto, mapa=mapa)
-                            w_mapa = ancho_mapa2 if mapa == 2 else ancho
-                            h_mapa = alto_mapa2 if mapa == 2 else alto
-                            fn.ajustapos(jugdatos, posicion_mc, w_mapa, h_mapa, mapa)
-                            estado = "juego" if mapa == 1 else "continuara" if mapa == 2 else "bazar"
-                            enemigos = fn.crearene(ancho_mapa2, alto_mapa2, min(8 + oleada * 3, 40), oleada, alto_pantalla=alto, jugdatos=jugdatos) if mapa == 2 else []
+                            vida, esc, pts, ole, pesos, panchos, spds, pist, posmc, mapa = fn.cargardat(anc, alt)
+                            jdat = fn.crearjug(anc, alt)
+                            jdat["vida"] = vida
+                            jdat["escudo"] = esc
+                            jdat["pesos"] = pesos
+                            jdat["puntos"] = pts
+                            jdat["pistola"] = pist
+                            fn.escjug(jdat, anc, alt, mapa=mapa)
+                            wm = anc_m2 if mapa == 2 else anc
+                            hm = alt_m2 if mapa == 2 else alt
+                            fn.ajustapos(jdat, posmc, wm, hm, mapa)
+                            estado = "juego" if mapa == 1 else ("continuara" if mapa == 2 else "bazar")
+                            enes = fn.crearene(anc_m2, alt_m2, min(8 + ole * 3, 40), ole, alt_p=alt, jdat=jdat) if mapa == 2 else []
                             proys = []
-                            transicion = {"estado": "andy01" if mapa == "bazar" else "ninguno", "inicio": pygame.time.get_ticks()}
-                            mapagraf = fn.cargarmapa(ancho, alto)
+                            trans = {"estado": "andy01" if mapa == "bazar" else "ninguno", "inicio": pygame.time.get_ticks()}
+                            mgraf = fn.cargarmapa(anc, alt)
                         elif b["accion"] == "reiniciar":
-                            vida = 5
-                            escudo = 0
-                            puntos = 0
-                            oleada = 1
-                            pesos = 0
-                            panchos = 0
-                            speeds = 0
-                            pistola = False
-                            mapa = 1
-                            jugdatos = fn.crearjugador(ancho, alto)
-                            jugdatos["escudo"] = escudo
-                            jugdatos["pesos"] = pesos
-                            jugdatos["puntos"] = puntos
-                            jugdatos["pistola"] = pistola
-                            posicion_mc = jugdatos["rect"].topleft
-                            enemigos = []
-                            proys = []
-                            transicion = {"estado": "ninguno", "inicio": 0}
-                            mapagraf = fn.cargarmapa(ancho, alto)
-                            fn.guardardat(vida, puntos, oleada, pesos, panchos, pistola, posicion_mc, mapa, escudo=escudo, speeds=speeds)
+                            vida, esc, pts, ole, pesos, panchos, spds, pist, mapa = 5, 0, 0, 1, 0, 0, 0, False, 1
+                            jdat = fn.crearjug(anc, alt)
+                            posmc = jdat["rect"].topleft
+                            enes, proys = [], []
+                            trans = {"estado": "ninguno", "inicio": 0}
+                            mgraf = fn.cargarmapa(anc, alt)
+                            fn.guardardat(vida, pts, ole, pesos, panchos, pist, posmc, mapa, esc=esc, spds=spds)
                             estado = "juego"
                         elif b["accion"] == "ventana":
-                            ventana = fn.modopant(ancho, alto, ventana)
-                            pantalla_ventana = pygame.Surface(ventana.get_size())
-                            if ventana.get_flags() & pygame.FULLSCREEN:
-                                b["texto"] = "VENTANA"
-                            else:
-                                b["texto"] = "PANTALLA COMPLETA"
+                            vent = fn.modopant(anc, alt, vent)
+                            pant_vent = pygame.Surface(vent.get_size())
+                            b["texto"] = "VENTANA" if vent.get_flags() & pygame.FULLSCREEN else "PANTALLA COMPLETA"
                         elif b["accion"] == "salir":
                             jugando = False
             elif estado == "bazar":
-                if transicion["estado"] == "andy02":
-                    comprar = pygame.Rect(int(ancho * 0.62), int(alto * 0.56), int(ancho * 0.22), int(alto * 0.18))
-                    salir = pygame.Rect(int(ancho * 0.62), int(alto * 0.78), int(ancho * 0.22), int(alto * 0.18))
+                if trans["estado"] == "andy02":
+                    comprar = pygame.Rect(int(anc * 0.62), int(alt * 0.56), int(anc * 0.22), int(alt * 0.18))
+                    salir = pygame.Rect(int(anc * 0.62), int(alt * 0.78), int(anc * 0.22), int(alt * 0.18))
                     if salir.collidepoint(mouse):
                         estado = "juego"
                         mapa = 1
-                        transicion["estado"] = "ninguno"
-                        mapagraf = fn.cargarmapa(ancho, alto)
-                        jugdatos["rect"].centerx = puertabazar.centerx
-                        jugdatos["rect"].top = int(alto * 0.36)
-                        fn.ajustapos(jugdatos, jugdatos["rect"].topleft, ancho, alto, mapa)
+                        trans["estado"] = "ninguno"
+                        mgraf = fn.cargarmapa(anc, alt)
+                        jdat["rect"].centerx = pbazar.centerx
+                        jdat["rect"].top = int(alt * 0.36)
+                        fn.ajustapos(jdat, jdat["rect"].topleft, anc, alt, mapa)
                     elif comprar.collidepoint(mouse):
-                        transicion["estado"] = "andy03"
-                        transicion["inicio"] = pygame.time.get_ticks()
-                        mensaje_compra = ""
-                        carrito_pistola = 0
-                        carrito_panchos = 0
-                        carrito_speeds = 0
-                elif transicion["estado"] == "andy03":
-                    slot_pistola = pygame.Rect(int(ancho * 0.145), int(alto * 0.210), int(ancho * 0.115), int(alto * 0.175))
-                    slot_pancho = pygame.Rect(int(ancho * 0.334), int(alto * 0.210), int(ancho * 0.121), int(alto * 0.178))
-                    slot_speed = pygame.Rect(int(ancho * 0.529), int(alto * 0.210), int(ancho * 0.128), int(alto * 0.178))
-                    btn_confirmar = pygame.Rect(int(ancho * 0.713), int(alto * 0.605), int(ancho * 0.145), int(alto * 0.173))
-                    btn_vaciar = pygame.Rect(int(ancho * 0.56), int(alto * 0.65), int(ancho * 0.13), int(alto * 0.08))
-                    volver = pygame.Rect(int(ancho * 0.02), int(alto * 0.02), int(ancho * 0.18), int(alto * 0.14))
+                        trans["estado"] = "andy03"
+                        trans["inicio"] = pygame.time.get_ticks()
+                        msg_comp = ""
+                        car_pist = 0
+                        car_pan = 0
+                        car_spd = 0
+                elif trans["estado"] == "andy03":
+                    s_pist = pygame.Rect(int(anc * 0.145), int(alt * 0.210), int(anc * 0.115), int(alt * 0.175))
+                    s_pan = pygame.Rect(int(anc * 0.334), int(alt * 0.210), int(anc * 0.121), int(alt * 0.178))
+                    s_spd = pygame.Rect(int(anc * 0.529), int(alt * 0.210), int(anc * 0.128), int(alt * 0.178))
+                    btn_conf = pygame.Rect(int(anc * 0.713), int(alt * 0.605), int(anc * 0.145), int(alt * 0.173))
+                    btn_vac = pygame.Rect(int(anc * 0.56), int(alt * 0.65), int(anc * 0.13), int(alt * 0.08))
+                    volver = pygame.Rect(int(anc * 0.02), int(alt * 0.02), int(anc * 0.18), int(alt * 0.14))
 
-                    if slot_pistola.collidepoint(mouse):
-                        if pistola:
-                            mensaje_compra = "Ya tienes la pistola (solo 1 vez)"
+                    if s_pist.collidepoint(mouse):
+                        if pist:
+                            msg_comp = "Ya tienes la pistola (solo 1 vez)"
                         else:
-                            carrito_pistola = 0 if carrito_pistola else 1
-                            mensaje_compra = ""
-                    elif slot_pancho.collidepoint(mouse):
-                        carrito_panchos += 1
-                        mensaje_compra = ""
-                    elif slot_speed.collidepoint(mouse):
-                        carrito_speeds += 1
-                        mensaje_compra = ""
-                    elif btn_vaciar.collidepoint(mouse):
-                        carrito_pistola = 0
-                        carrito_panchos = 0
-                        carrito_speeds = 0
-                        mensaje_compra = "Seleccion vaciada"
-                    elif btn_confirmar.collidepoint(mouse):
-                        costo_total = (PRECIO_PISTOLA if carrito_pistola else 0) + carrito_panchos * PRECIO_PANCHO + carrito_speeds * PRECIO_SPEED
-                        if carrito_pistola == 0 and carrito_panchos == 0 and carrito_speeds == 0:
-                            mensaje_compra = "Toca los iconos para agregar items"
-                        elif pesos >= costo_total:
-                            pesos -= costo_total
-                            jugdatos["pesos"] = pesos
-                            if carrito_pistola:
-                                pistola = True
-                                jugdatos["pistola"] = True
-                            panchos += carrito_panchos
-                            speeds += carrito_speeds
-                            carrito_pistola = 0
-                            carrito_panchos = 0
-                            carrito_speeds = 0
-                            mensaje_compra = "¡Compra confirmada!"
-                            fn.guardardat(jugdatos["vida"], puntos, oleada, pesos, panchos, pistola, jugdatos["rect"].topleft, mapa, escudo=jugdatos.get("escudo", 0), speeds=speeds)
+                            car_pist = 0 if car_pist else 1
+                            msg_comp = ""
+                    elif s_pan.collidepoint(mouse):
+                        car_pan += 1
+                        msg_comp = ""
+                    elif s_spd.collidepoint(mouse):
+                        car_spd += 1
+                        msg_comp = ""
+                    elif btn_vac.collidepoint(mouse):
+                        car_pist = 0
+                        car_pan = 0
+                        car_spd = 0
+                        msg_comp = "Seleccion vaciada"
+                    elif btn_conf.collidepoint(mouse):
+                        ctot = (PRECIO_PISTOLA if car_pist else 0) + car_pan * PRECIO_PANCHO + car_spd * PRECIO_SPEED
+                        if car_pist == 0 and car_pan == 0 and car_spd == 0:
+                            msg_comp = "Toca los iconos para agregar items"
+                        elif pesos >= ctot:
+                            pesos -= ctot
+                            jdat["pesos"] = pesos
+                            if car_pist:
+                                pist = True
+                                jdat["pistola"] = True
+                            panchos += car_pan
+                            spds += car_spd
+                            car_pist, car_pan, car_spd = 0, 0, 0
+                            msg_comp = "¡Compra confirmada!"
+                            fn.guardardat(jdat["vida"], pts, ole, pesos, panchos, pist, jdat["rect"].topleft, mapa, esc=jdat.get("escudo", 0), spds=spds)
                         else:
-                            mensaje_compra = f"Necesitas {costo_total} pesos (tienes {pesos})"
+                            msg_comp = f"Necesitas {ctot} pesos (tienes {pesos})"
                     elif volver.collidepoint(mouse):
-                        transicion["estado"] = "andy02"
-                        transicion["inicio"] = pygame.time.get_ticks()
-                        carrito_pistola = 0
-                        carrito_panchos = 0
-                        carrito_speeds = 0
-            elif estado == "juego" and transicion["estado"] == "ninguno":
-                if pistola:
+                        trans["estado"] = "andy02"
+                        trans["inicio"] = pygame.time.get_ticks()
+                        car_pist, car_pan, car_spd = 0, 0, 0
+            elif estado == "juego" and trans["estado"] == "ninguno":
+                if pist:
                     if balas > 0:
-                        proy = fn.crearproypistola(jugdatos, mouse)
-                        if proy is not None:
-                            proys.append(proy)
+                        p = fn.proypist(jdat, mouse)
+                        if p is not None:
+                            proys.append(p)
                             balas -= 1
                             if balas == 0:
-                                recarga_hasta = pygame.time.get_ticks() + 2000
-                elif fn.iniciarataq(jugdatos, mouse):
-                    proys.append(fn.crearproy(jugdatos))
+                                rec_hasta = pygame.time.get_ticks() + 2000
+                elif fn.iniataq(jdat, mouse):
+                    proys.append(fn.crearproy(jdat))
             elif estado == "continuara":
-                mouse_mundo = (mouse[0] + cam_x, mouse[1] + cam_y)
-                if pistola:
+                mmundo = (mouse[0] + camx, mouse[1] + camy)
+                if pist:
                     if balas > 0:
-                        proy = fn.crearproypistola(jugdatos, mouse_mundo)
-                        if proy is not None:
-                            proys.append(proy)
+                        p = fn.proypist(jdat, mmundo)
+                        if p is not None:
+                            proys.append(p)
                             balas -= 1
                             if balas == 0:
-                                recarga_hasta = pygame.time.get_ticks() + 2000
-                elif fn.iniciarataq(jugdatos, mouse_mundo, enemigos=enemigos):
-                    proys.append(fn.crearproy(jugdatos))
+                                rec_hasta = pygame.time.get_ticks() + 2000
+                elif fn.iniataq(jdat, mmundo, enes=enes):
+                    proys.append(fn.crearproy(jdat))
             elif estado == "derrota":
-                for b in botonesderrota:
+                for b in bder:
                     if b["rect"].collidepoint(mouse):
                         if b["accion"] == "jugar":
-                            jugdatos = fn.crearjugador(ancho, alto)
-                            fn.cambiar_escala_jugador(jugdatos, ancho, alto, mapa=1)
-                            vida = jugdatos["vida"]
-                            escudo = 0
-                            jugdatos["escudo"] = escudo
-                            puntos = 0
-                            oleada = 1
-                            pesos = 0
-                            panchos = 0
-                            speeds = 0
-                            pistola = False
-                            mapa = 1
-                            enemigos = []
-                            proys = []
-                            jugdatos["pesos"] = pesos
-                            jugdatos["puntos"] = puntos
-                            jugdatos["pistola"] = pistola
-                            posicion_mc = jugdatos["rect"].topleft
-                            transicion = {"estado": "ninguno", "inicio": 0}
-                            mapagraf = fn.cargarmapa(ancho, alto)
+                            jdat = fn.crearjug(anc, alt)
+                            fn.escjug(jdat, anc, alt, mapa=1)
+                            vida, esc, pts, ole, pesos, panchos, spds, pist, mapa = jdat["vida"], 0, 0, 1, 0, 0, 0, False, 1
+                            enes, proys = [], []
+                            trans = {"estado": "ninguno", "inicio": 0}
+                            mgraf = fn.cargarmapa(anc, alt)
                             estado = "juego"
                         elif b["accion"] == "menu":
                             estado = "menu"
 
     if estado == "menu":
-        fondosurf = fn.framevideo(video, ancho, alto)
-        fn.dibujar(pantalla, fondosurf, panelizq, panelder, anchopanel, t1, t2, rect1, rect2, botones, fuentebtn, mouse)
+        fsurf = fn.framevideo(vid, anc, alt)
+        fn.dibujar(pant, fsurf, pizq, pder, wpan, t1, t2, r1, r2, btns, fbtn, mouse)
     elif estado == "juego":
-        fn.actualizarataq(jugdatos)
-        fn.moverjugador(jugdatos, teclas, ancho, alto, mapa=1)
-        fn.moverproy(proys, [], ancho, alto, jugdatos)
-        fn.recibirdaño(jugdatos, [])
-        fn.actualizar_drops_y_efectos(jugdatos)
-        pesos = jugdatos.get("pesos", pesos)
-        puntos = jugdatos.get("puntos", puntos)
+        fn.actataq(jdat)
+        fn.moverjug(jdat, teclas, anc, alt, mapa=1)
+        fn.moverproy(proys, [], anc, alt, jdat)
+        fn.recibirdaño(jdat, [])
+        fn.actefectos(jdat)
+        pesos = jdat.get("pesos", pesos)
+        pts = jdat.get("puntos", pts)
 
-        if jugdatos["vida"] <= 0:
+        if jdat["vida"] <= 0:
             estado = "derrota"
-            fn.dibujarperdida(pantalla, jugdatos, mapagraf, bfuentetitulo, bfontederrota, botonesderrota, mouse)
-        elif jugdatos["rect"].right >= ancho:
+            fn.dibujarperdida(pant, jdat, mgraf, bftit, bfontder, bder, mouse)
+        elif jdat["rect"].right >= anc:
             estado = "continuara"
             mapa = 2
-            fn.cambiar_escala_jugador(jugdatos, ancho, alto, mapa=2)
+            fn.escjug(jdat, anc, alt, mapa=2)
             proys = []
-            jugdatos["rect"].left = 0
-            jugdatos["rect"].centery = int(jugdatos["rect"].centery * (alto_mapa2 / alto))
-            fn.ajustapos(jugdatos, jugdatos["rect"].topleft, ancho_mapa2, alto_mapa2, mapa)
-            enemigos = fn.crearene(ancho_mapa2, alto_mapa2, min(8 + oleada * 3, 40), oleada, alto_pantalla=alto, jugdatos=jugdatos)
+            jdat["rect"].left = 0
+            jdat["rect"].centery = int(jdat["rect"].centery * (alt_m2 / alt))
+            fn.ajustapos(jdat, jdat["rect"].topleft, anc_m2, alt_m2, mapa)
+            enes = fn.crearene(anc_m2, alt_m2, min(8 + ole * 3, 40), ole, alt_p=alt, jdat=jdat)
         else:
-            fn.dibujarjuego(pantalla, mapagraf, jugdatos, vidas, [], proys=proys, escudos=escudos)
-            if jugdatos["hitbox"].colliderect(puertabazar):
-                txt_bazar = fuente_compra.render("[ESPACIO] BAZAR", True, (255, 255, 255))
-                rect_tb = txt_bazar.get_rect(center=(puertabazar.centerx, puertabazar.top - 14))
-                pygame.draw.rect(pantalla, (0, 0, 0, 180), rect_tb.inflate(14, 8), border_radius=4)
-                pantalla.blit(txt_bazar, rect_tb)
-            rect_pancho_hud, rect_speed_hud = fn.dibujarrecursos(pantalla, iconos_recursos, pesos, panchos, balas if pistola else None, BALAS_MAXIMAS, speeds=speeds)
-            fn.dibujaroleada(pantalla, oleada, None, jugdatos)
-            if pygame.time.get_ticks() < mensaje_pancho_hasta:
-                texto_uso = fuente_compra.render(mensaje_pancho, True, (255, 255, 255))
-                pantalla.blit(texto_uso, texto_uso.get_rect(topright=(ancho - int(alto * 0.02), rect_pancho_hud.bottom + 4)))
+            fn.dibujarjuego(pant, mgraf, jdat, vidas, [], proys=proys, escudos=escudos)
+            if jdat["hitbox"].colliderect(pbazar):
+                txt_b = f_comp.render("[ESPACIO] BAZAR", True, (255, 255, 255))
+                rtb = txt_b.get_rect(center=(pbazar.centerx, pbazar.top - 14))
+                pygame.draw.rect(pant, (0, 0, 0, 180), rtb.inflate(14, 8), border_radius=4)
+                pant.blit(txt_b, rtb)
+            r_pan_hud, r_spd_hud = fn.dibujarrecursos(pant, icons, pesos, panchos, balas if pist else None, BMAX, spds=spds)
+            fn.dibujaroleada(pant, ole, None, jdat)
+            if pygame.time.get_ticks() < msg_pan_hasta:
+                tuso = f_comp.render(msg_pan, True, (255, 255, 255))
+                pant.blit(tuso, tuso.get_rect(topright=(anc - int(alt * 0.02), r_pan_hud.bottom + 4)))
     elif estado == "bazar":
         ahora = pygame.time.get_ticks()
-
-        if transicion["estado"] == "negro":
-            pantalla.fill((0, 0, 0))
-            if ahora - transicion["inicio"] >= 250:
-                transicion["estado"] = "andy00"
-                transicion["inicio"] = ahora
-        elif transicion["estado"] == "andy00":
-            if ahora - transicion["inicio"] >= 700:
-                transicion["estado"] = "fade_andy01"
-                transicion["inicio"] = ahora
-            pantalla.blit(andy00, (0, 0))
-        elif transicion["estado"] == "fade_andy01":
-            progreso = min(1.0, (ahora - transicion["inicio"]) / 350.0)
-            alpha = int(progreso * 255)
-
-            pantalla.blit(andy00, (0, 0))
-            andy01.set_alpha(alpha)
-            pantalla.blit(andy01, (0, 0))
-
-            if progreso >= 1.0:
-                transicion["estado"] = "andy01"
-                transicion["inicio"] = ahora
-        elif transicion["estado"] == "andy01":
+        if trans["estado"] == "negro":
+            pant.fill((0, 0, 0))
+            if ahora - trans["inicio"] >= 250:
+                trans["estado"] = "andy00"
+                trans["inicio"] = ahora
+        elif trans["estado"] == "andy00":
+            if ahora - trans["inicio"] >= 700:
+                trans["estado"] = "fade_andy01"
+                trans["inicio"] = ahora
+            pant.blit(andy00, (0, 0))
+        elif trans["estado"] == "fade_andy01":
+            prog = min(1.0, (ahora - trans["inicio"]) / 350.0)
+            pant.blit(andy00, (0, 0))
+            andy01.set_alpha(int(prog * 255))
+            pant.blit(andy01, (0, 0))
+            if prog >= 1.0:
+                trans["estado"] = "andy01"
+                trans["inicio"] = ahora
+        elif trans["estado"] == "andy01":
             andy01.set_alpha(255)
-            pantalla.blit(andy01, (0, 0))
-            if ahora - transicion["inicio"] >= 1000:
-                transicion["estado"] = "andy02"
-                transicion["inicio"] = ahora
-        elif transicion["estado"] == "andy02":
-            pantalla.blit(andy02, (0, 0))
-        elif transicion["estado"] == "andy03":
-            pantalla.blit(andy03, (0, 0))
+            pant.blit(andy01, (0, 0))
+            if ahora - trans["inicio"] >= 1000:
+                trans["estado"] = "andy02"
+                trans["inicio"] = ahora
+        elif trans["estado"] == "andy02":
+            pant.blit(andy02, (0, 0))
+        elif trans["estado"] == "andy03":
+            pant.blit(andy03, (0, 0))
+            s_pist = pygame.Rect(int(anc * 0.145), int(alt * 0.210), int(anc * 0.115), int(alt * 0.175))
+            s_pan = pygame.Rect(int(anc * 0.334), int(alt * 0.210), int(anc * 0.121), int(alt * 0.178))
+            s_spd = pygame.Rect(int(anc * 0.529), int(alt * 0.210), int(anc * 0.128), int(alt * 0.178))
+            btn_conf = pygame.Rect(int(anc * 0.713), int(alt * 0.605), int(anc * 0.145), int(alt * 0.173))
+            btn_vac = pygame.Rect(int(anc * 0.56), int(alt * 0.65), int(anc * 0.13), int(alt * 0.08))
 
-            slot_pistola = pygame.Rect(int(ancho * 0.145), int(alto * 0.210), int(ancho * 0.115), int(alto * 0.175))
-            slot_pancho = pygame.Rect(int(ancho * 0.334), int(alto * 0.210), int(ancho * 0.121), int(alto * 0.178))
-            slot_speed = pygame.Rect(int(ancho * 0.529), int(alto * 0.210), int(ancho * 0.128), int(alto * 0.178))
-            btn_confirmar = pygame.Rect(int(ancho * 0.713), int(alto * 0.605), int(ancho * 0.145), int(alto * 0.173))
-            btn_vaciar = pygame.Rect(int(ancho * 0.56), int(alto * 0.65), int(ancho * 0.13), int(alto * 0.08))
+            pant.blit(pan_tienda, pan_tienda.get_rect(center=s_pan.center))
+            pant.blit(spd_tienda, spd_tienda.get_rect(center=s_spd.center))
 
-            # Dibujar iconos de pancho y speed en la segunda y tercera casilla de la tienda
-            pantalla.blit(pancho_tienda, pancho_tienda.get_rect(center=slot_pancho.center))
-            pantalla.blit(speed_tienda, speed_tienda.get_rect(center=slot_speed.center))
+            if pist:
+                ov_comp = pygame.Surface(s_pist.size, pygame.SRCALPHA)
+                ov_comp.fill((0, 0, 0, 150))
+                pant.blit(ov_comp, s_pist.topleft)
+                pygame.draw.rect(pant, (120, 120, 120), s_pist, 3, border_radius=6)
+                t_comp = f_comp_ch.render("COMPRADA", True, (255, 200, 100))
+                pant.blit(t_comp, t_comp.get_rect(center=s_pist.center))
+            elif car_pist > 0:
+                pygame.draw.rect(pant, (80, 255, 100), s_pist, 4, border_radius=6)
+                bp = f_comp.render("x1", True, (80, 255, 100))
+                pant.blit(bp, bp.get_rect(bottomright=(s_pist.right - 6, s_pist.bottom - 4)))
+            elif s_pist.collidepoint(mouse):
+                pygame.draw.rect(pant, (255, 255, 140), s_pist, 3, border_radius=6)
 
-            # Bordes interactivos / selección en las casillas
-            if pistola:
-                overlay_comprada = pygame.Surface(slot_pistola.size, pygame.SRCALPHA)
-                overlay_comprada.fill((0, 0, 0, 150))
-                pantalla.blit(overlay_comprada, slot_pistola.topleft)
-                pygame.draw.rect(pantalla, (120, 120, 120), slot_pistola, 3, border_radius=6)
-                txt_comp = fuente_compra_chica.render("COMPRADA", True, (255, 200, 100))
-                pantalla.blit(txt_comp, txt_comp.get_rect(center=slot_pistola.center))
-            elif carrito_pistola > 0:
-                pygame.draw.rect(pantalla, (80, 255, 100), slot_pistola, 4, border_radius=6)
-                badge_p = fuente_compra.render("x1", True, (80, 255, 100))
-                pantalla.blit(badge_p, badge_p.get_rect(bottomright=(slot_pistola.right - 6, slot_pistola.bottom - 4)))
-            elif slot_pistola.collidepoint(mouse):
-                pygame.draw.rect(pantalla, (255, 255, 140), slot_pistola, 3, border_radius=6)
+            if car_pan > 0:
+                pygame.draw.rect(pant, (80, 255, 100), s_pan, 4, border_radius=6)
+                bpan = f_comp.render(f"x{car_pan}", True, (80, 255, 100))
+                pant.blit(bpan, bpan.get_rect(bottomright=(s_pan.right - 6, s_pan.bottom - 4)))
+            elif s_pan.collidepoint(mouse):
+                pygame.draw.rect(pant, (255, 255, 140), s_pan, 3, border_radius=6)
 
-            if carrito_panchos > 0:
-                pygame.draw.rect(pantalla, (80, 255, 100), slot_pancho, 4, border_radius=6)
-                badge_pan = fuente_compra.render(f"x{carrito_panchos}", True, (80, 255, 100))
-                pantalla.blit(badge_pan, badge_pan.get_rect(bottomright=(slot_pancho.right - 6, slot_pancho.bottom - 4)))
-            elif slot_pancho.collidepoint(mouse):
-                pygame.draw.rect(pantalla, (255, 255, 140), slot_pancho, 3, border_radius=6)
+            if car_spd > 0:
+                pygame.draw.rect(pant, (80, 255, 100), s_spd, 4, border_radius=6)
+                bspd = f_comp.render(f"x{car_spd}", True, (80, 255, 100))
+                pant.blit(bspd, bspd.get_rect(bottomright=(s_spd.right - 6, s_spd.bottom - 4)))
+            elif s_spd.collidepoint(mouse):
+                pygame.draw.rect(pant, (255, 255, 140), s_spd, 3, border_radius=6)
 
-            if carrito_speeds > 0:
-                pygame.draw.rect(pantalla, (80, 255, 100), slot_speed, 4, border_radius=6)
-                badge_spd = fuente_compra.render(f"x{carrito_speeds}", True, (80, 255, 100))
-                pantalla.blit(badge_spd, badge_spd.get_rect(bottomright=(slot_speed.right - 6, slot_speed.bottom - 4)))
-            elif slot_speed.collidepoint(mouse):
-                pygame.draw.rect(pantalla, (255, 255, 140), slot_speed, 3, border_radius=6)
+            lbl_pist = f_comp_ch.render("PISTOLA (Única)", True, (255, 255, 255))
+            pr_pist_t = f_comp_ch.render("AGOTADO" if pist else f"${PRECIO_PISTOLA}", True, (200, 200, 200) if pist else (255, 230, 100))
+            pant.blit(lbl_pist, lbl_pist.get_rect(center=(s_pist.centerx, s_pist.bottom + int(alt * 0.03))))
+            pant.blit(pr_pist_t, pr_pist_t.get_rect(center=(s_pist.centerx, s_pist.bottom + int(alt * 0.065))))
 
-            # Precios y etiquetas debajo de cada casilla
-            lbl_pistola = fuente_compra_chica.render("PISTOLA (Única)", True, (255, 255, 255))
-            precio_pistola_txt = fuente_compra_chica.render("AGOTADO" if pistola else f"${PRECIO_PISTOLA}", True, (200, 200, 200) if pistola else (255, 230, 100))
-            pantalla.blit(lbl_pistola, lbl_pistola.get_rect(center=(slot_pistola.centerx, slot_pistola.bottom + int(alto * 0.03))))
-            pantalla.blit(precio_pistola_txt, precio_pistola_txt.get_rect(center=(slot_pistola.centerx, slot_pistola.bottom + int(alto * 0.065))))
+            lbl_pan = f_comp_ch.render("PANCHO (+Vida)", True, (255, 255, 255))
+            pr_pan_t = f_comp_ch.render(f"${PRECIO_PANCHO} c/u", True, (255, 230, 100))
+            ay_pan = f_comp_ch.render("(Clic izq +1 / der -1)", True, (210, 210, 210))
+            pant.blit(lbl_pan, lbl_pan.get_rect(center=(s_pan.centerx, s_pan.bottom + int(alt * 0.03))))
+            pant.blit(pr_pan_t, pr_pan_t.get_rect(center=(s_pan.centerx, s_pan.bottom + int(alt * 0.065))))
+            pant.blit(ay_pan, ay_pan.get_rect(center=(s_pan.centerx, s_pan.bottom + int(alt * 0.098))))
 
-            lbl_pancho = fuente_compra_chica.render("PANCHO (+Vida)", True, (255, 255, 255))
-            precio_pancho_txt = fuente_compra_chica.render(f"${PRECIO_PANCHO} c/u", True, (255, 230, 100))
-            ayuda_pancho = fuente_compra_chica.render("(Clic izq +1 / der -1)", True, (210, 210, 210))
-            pantalla.blit(lbl_pancho, lbl_pancho.get_rect(center=(slot_pancho.centerx, slot_pancho.bottom + int(alto * 0.03))))
-            pantalla.blit(precio_pancho_txt, precio_pancho_txt.get_rect(center=(slot_pancho.centerx, slot_pancho.bottom + int(alto * 0.065))))
-            pantalla.blit(ayuda_pancho, ayuda_pancho.get_rect(center=(slot_pancho.centerx, slot_pancho.bottom + int(alto * 0.098))))
+            lbl_spd = f_comp_ch.render("SPEED (+1 Escudo)", True, (255, 255, 255))
+            pr_spd_t = f_comp_ch.render(f"${PRECIO_SPEED} c/u", True, (255, 230, 100))
+            ay_spd = f_comp_ch.render("(Clic izq +1 / der -1)", True, (210, 210, 210))
+            pant.blit(lbl_spd, lbl_spd.get_rect(center=(s_spd.centerx, s_spd.bottom + int(alt * 0.03))))
+            pant.blit(pr_spd_t, pr_spd_t.get_rect(center=(s_spd.centerx, s_spd.bottom + int(alt * 0.065))))
+            pant.blit(ay_spd, ay_spd.get_rect(center=(s_spd.centerx, s_spd.bottom + int(alt * 0.098))))
 
-            lbl_speed = fuente_compra_chica.render("SPEED (+1 Escudo)", True, (255, 255, 255))
-            precio_speed_txt = fuente_compra_chica.render(f"${PRECIO_SPEED} c/u", True, (255, 230, 100))
-            ayuda_speed = fuente_compra_chica.render("(Clic izq +1 / der -1)", True, (210, 210, 210))
-            pantalla.blit(lbl_speed, lbl_speed.get_rect(center=(slot_speed.centerx, slot_speed.bottom + int(alto * 0.03))))
-            pantalla.blit(precio_speed_txt, precio_speed_txt.get_rect(center=(slot_speed.centerx, slot_speed.bottom + int(alto * 0.065))))
-            pantalla.blit(ayuda_speed, ayuda_speed.get_rect(center=(slot_speed.centerx, slot_speed.bottom + int(alto * 0.098))))
+            ctot = car_pist * PRECIO_PISTOLA + car_pan * PRECIO_PANCHO + car_spd * PRECIO_SPEED
+            tsaldo = f_comp.render(f"Tus Pesos: ${pesos}", True, (255, 255, 255))
+            pant.blit(tsaldo, tsaldo.get_rect(center=(int(anc * 0.78), int(alt * 0.25))))
 
-            # Panel de resumen de compra y saldo a la derecha
-            costo_total = carrito_pistola * PRECIO_PISTOLA + carrito_panchos * PRECIO_PANCHO + carrito_speeds * PRECIO_SPEED
-            texto_saldo = fuente_compra.render(f"Tus Pesos: ${pesos}", True, (255, 255, 255))
-            pantalla.blit(texto_saldo, texto_saldo.get_rect(center=(int(ancho * 0.78), int(alto * 0.25))))
+            tresum = f_comp_ch.render(f"Pistola x{car_pist} | Panchos x{car_pan} | Speed x{car_spd}", True, (230, 230, 230))
+            pant.blit(tresum, tresum.get_rect(center=(int(anc * 0.75), int(alt * 0.46))))
 
-            resumen_items = f"Pistola x{carrito_pistola} | Panchos x{carrito_panchos} | Speed x{carrito_speeds}"
-            txt_resumen = fuente_compra_chica.render(resumen_items, True, (230, 230, 230))
-            pantalla.blit(txt_resumen, txt_resumen.get_rect(center=(int(ancho * 0.75), int(alto * 0.46))))
+            coltot = (255, 110, 110) if ctot > pesos else (120, 255, 140)
+            ttot = f_comp.render(f"Total a confirmar: ${ctot}", True, coltot)
+            pant.blit(ttot, ttot.get_rect(center=(int(anc * 0.75), int(alt * 0.53))))
 
-            color_total = (255, 110, 110) if costo_total > pesos else (120, 255, 140)
-            txt_total = fuente_compra.render(f"Total a confirmar: ${costo_total}", True, color_total)
-            pantalla.blit(txt_total, txt_total.get_rect(center=(int(ancho * 0.75), int(alto * 0.53))))
+            if btn_conf.collidepoint(mouse):
+                pygame.draw.rect(pant, (255, 255, 255), btn_conf, 3, border_radius=10)
 
-            # Resaltar botón COMPRAR al pasar el mouse o tener items
-            if btn_confirmar.collidepoint(mouse):
-                pygame.draw.rect(pantalla, (255, 255, 255), btn_confirmar, 3, border_radius=10)
+            if car_pist > 0 or car_pan > 0 or car_spd > 0:
+                colvac = (170, 60, 60) if btn_vac.collidepoint(mouse) else (120, 40, 40)
+                pygame.draw.rect(pant, colvac, btn_vac, border_radius=8)
+                pygame.draw.rect(pant, (255, 200, 200), btn_vac, 2, border_radius=8)
+                tvac = f_comp_ch.render("VACIAR", True, (255, 255, 255))
+                pant.blit(tvac, tvac.get_rect(center=btn_vac.center))
 
-            # Botón para vaciar selección si hay items acumulados
-            if carrito_pistola > 0 or carrito_panchos > 0 or carrito_speeds > 0:
-                color_vaciar = (170, 60, 60) if btn_vaciar.collidepoint(mouse) else (120, 40, 40)
-                pygame.draw.rect(pantalla, color_vaciar, btn_vaciar, border_radius=8)
-                pygame.draw.rect(pantalla, (255, 200, 200), btn_vaciar, 2, border_radius=8)
-                txt_vaciar = fuente_compra_chica.render("VACIAR", True, (255, 255, 255))
-                pantalla.blit(txt_vaciar, txt_vaciar.get_rect(center=btn_vaciar.center))
-
-            if mensaje_compra:
-                es_error = mensaje_compra.startswith("Necesitas") or mensaje_compra.startswith("Selecciona") or mensaje_compra.startswith("Toca") or mensaje_compra.startswith("Ya ")
-                color_mensaje = (255, 120, 120) if es_error else (130, 255, 130)
-                texto_mensaje = fuente_compra.render(mensaje_compra, True, color_mensaje)
-                rect_msg = texto_mensaje.get_rect(center=(int(ancho * 0.50), int(alto * 0.85)))
-                pygame.draw.rect(pantalla, (0, 0, 0, 190), rect_msg.inflate(20, 10), border_radius=6)
-                pantalla.blit(texto_mensaje, rect_msg)
+            if msg_comp:
+                es_err = any(msg_comp.startswith(pfx) for pfx in ("Necesitas", "Selecciona", "Toca", "Ya "))
+                tmsg = f_comp.render(msg_comp, True, (255, 120, 120) if es_err else (130, 255, 130))
+                rmsg = tmsg.get_rect(center=(int(anc * 0.50), int(alt * 0.85)))
+                pygame.draw.rect(pant, (0, 0, 0, 190), rmsg.inflate(20, 10), border_radius=6)
+                pant.blit(tmsg, rmsg)
     elif estado == "continuara":
-        fn.actualizarataq(jugdatos)
-        obstaculos_m2 = fn.obtener_obstaculos(2, ancho_mapa2, alto_mapa2)
-        fn.moverjugador(jugdatos, teclas, ancho_mapa2, alto_mapa2, mapa=2, obstaculos=obstaculos_m2)
-        fn.actualizaene(enemigos, jugdatos, proys, obstaculos=obstaculos_m2, ancho=ancho_mapa2, alto=alto_mapa2)
-        fn.moverproy(proys, enemigos, ancho_mapa2, alto_mapa2, jugdatos)
-        pesos = jugdatos.get("pesos", pesos)
-        puntos = jugdatos.get("puntos", puntos)
+        fn.actataq(jdat)
+        obs_m2 = fn.obstaculos(2, anc_m2, alt_m2)
+        fn.moverjug(jdat, teclas, anc_m2, alt_m2, mapa=2, obs_l=obs_m2)
+        fn.actualizaene(enes, jdat, proys, obs_l=obs_m2, anc=anc_m2, alt=alt_m2)
+        fn.moverproy(proys, enes, anc_m2, alt_m2, jdat)
+        pesos = jdat.get("pesos", pesos)
+        pts = jdat.get("puntos", pts)
 
-        cam_x = max(0, min(jugdatos["rect"].centerx - ancho // 2, ancho_mapa2 - ancho))
-        cam_y = max(0, min(jugdatos["rect"].centery - alto // 2, alto_mapa2 - alto))
+        camx = max(0, min(jdat["rect"].centerx - anc // 2, anc_m2 - anc))
+        camy = max(0, min(jdat["rect"].centery - alt // 2, alt_m2 - alt))
 
-        # Disparo continuo manteniendo el botón izquierdo del mouse si tiene pistola
-        botones_mouse = pygame.mouse.get_pressed()
-        en_hud = (rect_pancho_hud and rect_pancho_hud.collidepoint(mouse)) or (rect_speed_hud and rect_speed_hud.collidepoint(mouse))
-        if botones_mouse[0] and pistola and balas > 0 and not en_hud:
-            mouse_mundo = (mouse[0] + cam_x, mouse[1] + cam_y)
-            proy = fn.crearproypistola(jugdatos, mouse_mundo)
-            if proy is not None:
-                proys.append(proy)
+        btns_m = pygame.mouse.get_pressed()
+        en_hud = (r_pan_hud and r_pan_hud.collidepoint(mouse)) or (r_spd_hud and r_spd_hud.collidepoint(mouse))
+        if btns_m[0] and pist and balas > 0 and not en_hud:
+            mmundo = (mouse[0] + camx, mouse[1] + camy)
+            p = fn.proypist(jdat, mmundo)
+            if p is not None:
+                proys.append(p)
                 balas -= 1
                 if balas == 0:
-                    recarga_hasta = pygame.time.get_ticks() + 2000
+                    rec_hasta = pygame.time.get_ticks() + 2000
 
-        # La siguiente oleada empieza al despejar toda la cola y enemigos del mapa 2 y cruzar a la derecha
-        cola_vacia = not jugdatos.get("oleada_info") or len(jugdatos["oleada_info"].get("cola", [])) == 0
-        if jugdatos["rect"].right >= ancho_mapa2 and cola_vacia and len([e for e in enemigos if e["vida"] > 0]) == 0:
-            oleada_completada = oleada >= 20
-            if oleada < 20:
-                oleada += 1
+        cola_vac = not jdat.get("ole_inf") or len(jdat["ole_inf"].get("cola", [])) == 0
+        if jdat["rect"].right >= anc_m2 and cola_vac and len([e for e in enes if e["vida"] > 0]) == 0:
+            ole_fin = ole >= 20
+            if ole < 20:
+                ole += 1
             mapa = 1
-            estado = "victoria" if oleada_completada else "juego"
-            fn.cambiar_escala_jugador(jugdatos, ancho, alto, mapa=1)
-            jugdatos["rect"].left = 0
-            jugdatos["rect"].centery = int(jugdatos["rect"].centery * (alto / alto_mapa2))
-            enemigos = []
-            proys = []
-            jugdatos["drops"] = []
-            mapagraf = fn.cargarmapa(ancho, alto)
-            fn.ajustapos(jugdatos, jugdatos["rect"].topleft, ancho, alto, mapa)
-        elif jugdatos["vida"] <= 0:
+            estado = "victoria" if ole_fin else "juego"
+            fn.escjug(jdat, anc, alt, mapa=1)
+            jdat["rect"].left = 0
+            jdat["rect"].centery = int(jdat["rect"].centery * (alt / alt_m2))
+            enes, proys, jdat["drops"] = [], [], []
+            mgraf = fn.cargarmapa(anc, alt)
+            fn.ajustapos(jdat, jdat["rect"].topleft, anc, alt, mapa)
+        elif jdat["vida"] <= 0:
             estado = "derrota"
-            fn.dibujarperdida(pantalla, jugdatos, mapagraf2, bfuentetitulo, bfontederrota, botonesderrota, mouse, camara=(cam_x, cam_y))
+            fn.dibujarperdida(pant, jdat, mgraf2, bftit, bfontder, bder, mouse, cam=(camx, camy))
         else:
-            fn.dibujarjuego(pantalla, mapagraf2, jugdatos, vidas, enemigos, proys=proys, camara=(cam_x, cam_y), escudos=escudos)
-            rect_pancho_hud, rect_speed_hud = fn.dibujarrecursos(pantalla, iconos_recursos, pesos, panchos, balas if pistola else None, BALAS_MAXIMAS, speeds=speeds)
-            fn.dibujaroleada(pantalla, oleada, enemigos, jugdatos)
-            if pygame.time.get_ticks() < mensaje_pancho_hasta:
-                texto_uso = fuente_compra.render(mensaje_pancho, True, (255, 255, 255))
-                pantalla.blit(texto_uso, texto_uso.get_rect(topright=(ancho - int(alto * 0.02), rect_pancho_hud.bottom + 4)))
+            fn.dibujarjuego(pant, mgraf2, jdat, vidas, enes, proys=proys, cam=(camx, camy), escudos=escudos)
+            r_pan_hud, r_spd_hud = fn.dibujarrecursos(pant, icons, pesos, panchos, balas if pist else None, BMAX, spds=spds)
+            fn.dibujaroleada(pant, ole, enes, jdat)
+            if pygame.time.get_ticks() < msg_pan_hasta:
+                tuso = f_comp.render(msg_pan, True, (255, 255, 255))
+                pant.blit(tuso, tuso.get_rect(topright=(anc - int(alt * 0.02), r_pan_hud.bottom + 4)))
     elif estado == "derrota":
-        mapaderrota = mapagraf if mapa == 1 else mapagraf2
-        cam_derrota = (cam_x, cam_y) if mapa == 2 else (0, 0)
-        fn.dibujarperdida(pantalla, jugdatos, mapaderrota, bfuentetitulo, bfontederrota, botonesderrota, mouse, camara=cam_derrota)
+        mder = mgraf if mapa == 1 else mgraf2
+        cder = (camx, camy) if mapa == 2 else (0, 0)
+        fn.dibujarperdida(pant, jdat, mder, bftit, bfontder, bder, mouse, cam=cder)
     elif estado == "victoria":
-        fn.dibujarjuego(pantalla, mapagraf, jugdatos, vidas, [], proys=proys, escudos=escudos)
-        capa = pygame.Surface(pantalla.get_size(), pygame.SRCALPHA)
+        fn.dibujarjuego(pant, mgraf, jdat, vidas, [], proys=proys, escudos=escudos)
+        capa = pygame.Surface(pant.get_size(), pygame.SRCALPHA)
         capa.fill((0, 0, 0, 150))
-        pantalla.blit(capa, (0, 0))
-        texto = bfuentetitulo.render("COMPLETASTE LAS 20 OLEADAS", True, (255, 255, 255))
-        pantalla.blit(texto, texto.get_rect(center=(ancho // 2, alto // 2)))
-        subvictoria = bfontederrota.render("GG fucking Easy", True, (255, 255, 255))
-        pantalla.blit(subvictoria, subvictoria.get_rect(center=(ancho // 2, int(alto * 0.60))))
+        pant.blit(capa, (0, 0))
+        txt = bftit.render("COMPLETASTE LAS 20 OLEADAS", True, (255, 255, 255))
+        pant.blit(txt, txt.get_rect(center=(anc // 2, alt // 2)))
+        subv = bfontder.render("GG fucking Easy", True, (255, 255, 255))
+        pant.blit(subv, subv.get_rect(center=(anc // 2, int(alt * 0.60))))
 
-    mostrar_mira = pistola and estado in ("juego", "continuara")
-    pygame.mouse.set_visible(not mostrar_mira)
-    if mostrar_mira:
-        pantalla.blit(mira, mira.get_rect(center=mouse))
+    ver_mira = pist and estado in ("juego", "continuara")
+    pygame.mouse.set_visible(not ver_mira)
+    if ver_mira:
+        pant.blit(mira, mira.get_rect(center=mouse))
 
-    vida = jugdatos["vida"]
-    escudo = jugdatos.get("escudo", 0)
-    puntos = jugdatos.get("puntos", puntos)
-    posicion_mc = jugdatos["rect"].topleft
-    if ventana.get_size() == pantalla.get_size():
-        ventana.blit(pantalla, (0, 0))
+    posmc = jdat["rect"].topleft
+    if vent.get_size() == pant.get_size():
+        vent.blit(pant, (0, 0))
     else:
-        pygame.transform.scale(pantalla, ventana.get_size(), pantalla_ventana)
-        ventana.blit(pantalla_ventana, (0, 0))
+        pygame.transform.scale(pant, vent.get_size(), pant_vent)
+        vent.blit(pant_vent, (0, 0))
     pygame.display.flip()
-    reloj.tick(60)
+    clk.tick(60)
 
-    pesos = jugdatos.get("pesos", pesos)
-    if ahora - ultimo_guardado >= 5000:
-        fn.guardardat(vida, puntos, oleada, pesos, panchos, pistola, posicion_mc, mapa, escudo=escudo, speeds=speeds)
-        ultimo_guardado = ahora
+    pesos = jdat.get("pesos", pesos)
+    if ahora - ult_guardado >= 5000:
+        fn.guardardat(jdat["vida"], jdat.get("puntos", pts), ole, pesos, panchos, pist, posmc, mapa, esc=jdat.get("escudo", 0), spds=spds)
+        ult_guardado = ahora
 
-video.release()
+vid.release()
 pygame.quit()
 sys.exit()

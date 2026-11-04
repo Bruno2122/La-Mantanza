@@ -1,10 +1,10 @@
 vida=5
 escudo=0
-puntos=130
-oleada=2
-pesos=92
+puntos=0
+oleada=1
+pesos=0
 panchos=0
 speeds=0
-pistola=1
-posicion_mc=923,388
+pistola=0
+posicion_mc=796,775
 mapa=1
