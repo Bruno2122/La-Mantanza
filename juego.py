@@ -52,7 +52,12 @@ PRECIO_SPEED = 250
 BMAX = 10
 balas = BMAX
 rec_hasta = 0
-vida, esc, pts, ole, pesos, panchos, spds, pist, posmc, mapa = fn.cargardat(anc, alt)
+slot_actual = 1
+nombre_partida = "Partida 1"
+partidas = fn.listarpartidas(anc, alt)
+modal_crear = None
+modal_borrar = None
+vida, esc, pts, ole, pesos, panchos, spds, pist, posmc, mapa = fn.cargardat(anc, alt, slot=slot_actual)
 jdat = fn.crearjug(anc, alt)
 jdat["vida"] = vida
 jdat["escudo"] = esc
@@ -97,14 +102,52 @@ while jugando:
 
     for ev in pygame.event.get():
         if ev.type == pygame.QUIT:
-            fn.guardardat(jdat["vida"], jdat.get("puntos", pts), ole, pesos, panchos, pist, jdat["rect"].topleft, mapa, esc=jdat.get("escudo", 0), spds=spds)
+            fn.guardardat(jdat["vida"], jdat.get("puntos", pts), ole, pesos, panchos, pist, jdat["rect"].topleft, mapa, esc=jdat.get("escudo", 0), spds=spds, slot=slot_actual, nombre=nombre_partida)
             jugando = False
         elif ev.type == pygame.KEYDOWN:
             if ev.key == pygame.K_ESCAPE:
-                estado = "menu" if estado in ("juego", "continuara", "bazar", "derrota", "victoria") else "menu"
-                if estado == "menu" and ev.key == pygame.K_ESCAPE and not (estado in ("juego", "continuara", "bazar", "derrota", "victoria")):
+                if estado == "slots":
+                    if modal_crear:
+                        modal_crear = None
+                    elif modal_borrar:
+                        modal_borrar = None
+                    else:
+                        estado = "menu"
+                elif estado in ("juego", "continuara", "bazar", "derrota", "victoria"):
+                    fn.guardardat(jdat["vida"], jdat.get("puntos", pts), ole, pesos, panchos, pist, jdat["rect"].topleft, mapa, esc=jdat.get("escudo", 0), spds=spds, slot=slot_actual, nombre=nombre_partida)
+                    estado = "menu"
+                elif estado == "menu":
                     jugando = False
-                fn.guardardat(jdat["vida"], jdat.get("puntos", pts), ole, pesos, panchos, pist, jdat["rect"].topleft, mapa, esc=jdat.get("escudo", 0), spds=spds)
+            elif estado == "slots":
+                if modal_crear:
+                    if ev.key == pygame.K_RETURN:
+                        nom_f = modal_crear["texto"].strip() or f"Partida {modal_crear['slot']}"
+                        fn.crear_nueva_partida(modal_crear["slot"], nom_f, anc, alt)
+                        slot_actual = modal_crear["slot"]
+                        nombre_partida = nom_f
+                        vida, esc, pts, ole, pesos, panchos, spds, pist, posmc, mapa = fn.cargardat(anc, alt, slot=slot_actual)
+                        jdat = fn.crearjug(anc, alt)
+                        jdat["vida"] = vida
+                        jdat["escudo"] = esc
+                        jdat["pesos"] = pesos
+                        jdat["puntos"] = pts
+                        jdat["pistola"] = pist
+                        fn.escjug(jdat, anc, alt, mapa=mapa)
+                        wm = anc_m2 if mapa == 2 else anc
+                        hm = alt_m2 if mapa == 2 else alt
+                        fn.ajustapos(jdat, posmc, wm, hm, mapa)
+                        estado = "juego" if mapa == 1 else ("continuara" if mapa == 2 else "bazar")
+                        enes = fn.crearene(anc_m2, alt_m2, min(8 + ole * 3, 40), ole, alt_p=alt, jdat=jdat) if mapa == 2 else []
+                        proys = []
+                        trans = {"estado": "andy01" if mapa == "bazar" else "ninguno", "inicio": pygame.time.get_ticks()}
+                        mgraf = fn.cargarmapa(anc, alt)
+                        modal_crear = None
+                        partidas = fn.listarpartidas(anc, alt)
+                    elif ev.key == pygame.K_BACKSPACE:
+                        modal_crear["texto"] = modal_crear["texto"][:-1]
+                    else:
+                        if len(modal_crear["texto"]) < 18 and ev.unicode.isprintable():
+                            modal_crear["texto"] += ev.unicode
             elif ev.key in (pygame.K_LSHIFT, pygame.K_RSHIFT, pygame.K_k):
                 if estado in ("juego", "continuara"):
                     fn.inidash(jdat, teclas)
@@ -177,7 +220,7 @@ while jugando:
                     jdat["vida"] = 5
                     jdat["daño_acum"] = 0.0
                     msg_pan = "Vida restaurada"
-                    fn.guardardat(jdat["vida"], pts, ole, pesos, panchos, pist, jdat["rect"].topleft, mapa, esc=jdat.get("escudo", 0), spds=spds)
+                    fn.guardardat(jdat["vida"], pts, ole, pesos, panchos, pist, jdat["rect"].topleft, mapa, esc=jdat.get("escudo", 0), spds=spds, slot=slot_actual, nombre=nombre_partida)
                 elif jdat["vida"] >= 5:
                     msg_pan = "Vida completa"
                 else:
@@ -188,32 +231,90 @@ while jugando:
                     spds -= 1
                     jdat["escudo"] = min(3, jdat.get("escudo", 0) + 1)
                     msg_pan = "+1 Barra de Escudo"
-                    fn.guardardat(jdat["vida"], pts, ole, pesos, panchos, pist, jdat["rect"].topleft, mapa, esc=jdat.get("escudo", 0), spds=spds)
+                    fn.guardardat(jdat["vida"], pts, ole, pesos, panchos, pist, jdat["rect"].topleft, mapa, esc=jdat.get("escudo", 0), spds=spds, slot=slot_actual, nombre=nombre_partida)
                 elif jdat.get("escudo", 0) >= 3:
                     msg_pan = "Escudo al maximo"
                 else:
                     msg_pan = "No tienes Speed"
                 msg_pan_hasta = pygame.time.get_ticks() + 1400
+            elif estado == "slots":
+                lay = fn.layout_slots(anc, alt, modal_crear, modal_borrar)
+                if modal_crear and lay["modal_crear"]:
+                    if lay["modal_crear"]["rect_aceptar"].collidepoint(mouse):
+                        nom_f = modal_crear["texto"].strip() or f"Partida {modal_crear['slot']}"
+                        fn.crear_nueva_partida(modal_crear["slot"], nom_f, anc, alt)
+                        slot_actual = modal_crear["slot"]
+                        nombre_partida = nom_f
+                        vida, esc, pts, ole, pesos, panchos, spds, pist, posmc, mapa = fn.cargardat(anc, alt, slot=slot_actual)
+                        jdat = fn.crearjug(anc, alt)
+                        jdat["vida"] = vida
+                        jdat["escudo"] = esc
+                        jdat["pesos"] = pesos
+                        jdat["puntos"] = pts
+                        jdat["pistola"] = pist
+                        fn.escjug(jdat, anc, alt, mapa=mapa)
+                        wm = anc_m2 if mapa == 2 else anc
+                        hm = alt_m2 if mapa == 2 else alt
+                        fn.ajustapos(jdat, posmc, wm, hm, mapa)
+                        estado = "juego" if mapa == 1 else ("continuara" if mapa == 2 else "bazar")
+                        enes = fn.crearene(anc_m2, alt_m2, min(8 + ole * 3, 40), ole, alt_p=alt, jdat=jdat) if mapa == 2 else []
+                        proys = []
+                        trans = {"estado": "andy01" if mapa == "bazar" else "ninguno", "inicio": pygame.time.get_ticks()}
+                        mgraf = fn.cargarmapa(anc, alt)
+                        modal_crear = None
+                        partidas = fn.listarpartidas(anc, alt)
+                    elif lay["modal_crear"]["rect_cancelar"].collidepoint(mouse):
+                        modal_crear = None
+                elif modal_borrar and lay["modal_borrar"]:
+                    if lay["modal_borrar"]["rect_confirmar"].collidepoint(mouse):
+                        fn.borrarpartida(modal_borrar["slot"])
+                        modal_borrar = None
+                        partidas = fn.listarpartidas(anc, alt)
+                    elif lay["modal_borrar"]["rect_cancelar"].collidepoint(mouse):
+                        modal_borrar = None
+                else:
+                    if lay["rect_volver"].collidepoint(mouse):
+                        estado = "menu"
+                    else:
+                        for s_inf in lay["slots"]:
+                            s_num = s_inf["slot"]
+                            p = next((x for x in partidas if x["slot"] == s_num), None)
+                            if p and p["existe"]:
+                                if s_inf["rect_borrar"].collidepoint(mouse):
+                                    modal_borrar = {"slot": s_num, "nombre": p["nombre"]}
+                                    break
+                                elif s_inf["rect_jugar"].collidepoint(mouse) or s_inf["rect_card"].collidepoint(mouse):
+                                    slot_actual = s_num
+                                    nombre_partida = p["nombre"]
+                                    vida, esc, pts, ole, pesos, panchos, spds, pist, posmc, mapa = fn.cargardat(anc, alt, slot=slot_actual)
+                                    jdat = fn.crearjug(anc, alt)
+                                    jdat["vida"] = vida
+                                    jdat["escudo"] = esc
+                                    jdat["pesos"] = pesos
+                                    jdat["puntos"] = pts
+                                    jdat["pistola"] = pist
+                                    fn.escjug(jdat, anc, alt, mapa=mapa)
+                                    wm = anc_m2 if mapa == 2 else anc
+                                    hm = alt_m2 if mapa == 2 else alt
+                                    fn.ajustapos(jdat, posmc, wm, hm, mapa)
+                                    estado = "juego" if mapa == 1 else ("continuara" if mapa == 2 else "bazar")
+                                    enes = fn.crearene(anc_m2, alt_m2, min(8 + ole * 3, 40), ole, alt_p=alt, jdat=jdat) if mapa == 2 else []
+                                    proys = []
+                                    trans = {"estado": "andy01" if mapa == "bazar" else "ninguno", "inicio": pygame.time.get_ticks()}
+                                    mgraf = fn.cargarmapa(anc, alt)
+                                    break
+                            elif p and not p["existe"]:
+                                if s_inf["rect_card"].collidepoint(mouse):
+                                    modal_crear = {"slot": s_num, "texto": f"Partida {s_num}"}
+                                    break
             elif estado == "menu":
                 for b in btns:
                     if b["rect"].collidepoint(mouse):
                         if b["accion"] == "jugar":
-                            vida, esc, pts, ole, pesos, panchos, spds, pist, posmc, mapa = fn.cargardat(anc, alt)
-                            jdat = fn.crearjug(anc, alt)
-                            jdat["vida"] = vida
-                            jdat["escudo"] = esc
-                            jdat["pesos"] = pesos
-                            jdat["puntos"] = pts
-                            jdat["pistola"] = pist
-                            fn.escjug(jdat, anc, alt, mapa=mapa)
-                            wm = anc_m2 if mapa == 2 else anc
-                            hm = alt_m2 if mapa == 2 else alt
-                            fn.ajustapos(jdat, posmc, wm, hm, mapa)
-                            estado = "juego" if mapa == 1 else ("continuara" if mapa == 2 else "bazar")
-                            enes = fn.crearene(anc_m2, alt_m2, min(8 + ole * 3, 40), ole, alt_p=alt, jdat=jdat) if mapa == 2 else []
-                            proys = []
-                            trans = {"estado": "andy01" if mapa == "bazar" else "ninguno", "inicio": pygame.time.get_ticks()}
-                            mgraf = fn.cargarmapa(anc, alt)
+                            partidas = fn.listarpartidas(anc, alt)
+                            modal_crear = None
+                            modal_borrar = None
+                            estado = "slots"
                         elif b["accion"] == "reiniciar":
                             vida, esc, pts, ole, pesos, panchos, spds, pist, mapa = 5, 0, 0, 1, 0, 0, 0, False, 1
                             jdat = fn.crearjug(anc, alt)
@@ -221,7 +322,7 @@ while jugando:
                             enes, proys = [], []
                             trans = {"estado": "ninguno", "inicio": 0}
                             mgraf = fn.cargarmapa(anc, alt)
-                            fn.guardardat(vida, pts, ole, pesos, panchos, pist, posmc, mapa, esc=esc, spds=spds)
+                            fn.guardardat(vida, pts, ole, pesos, panchos, pist, posmc, mapa, esc=esc, spds=spds, slot=slot_actual, nombre=nombre_partida)
                             estado = "juego"
                         elif b["accion"] == "ventana":
                             vent = fn.modopant(anc, alt, vent)
@@ -287,7 +388,7 @@ while jugando:
                             spds += car_spd
                             car_pist, car_pan, car_spd = 0, 0, 0
                             msg_comp = "¡Compra confirmada!"
-                            fn.guardardat(jdat["vida"], pts, ole, pesos, panchos, pist, jdat["rect"].topleft, mapa, esc=jdat.get("escudo", 0), spds=spds)
+                            fn.guardardat(jdat["vida"], pts, ole, pesos, panchos, pist, jdat["rect"].topleft, mapa, esc=jdat.get("escudo", 0), spds=spds, slot=slot_actual, nombre=nombre_partida)
                         else:
                             msg_comp = f"Necesitas {ctot} pesos (tienes {pesos})"
                     elif volver.collidepoint(mouse):
@@ -327,6 +428,7 @@ while jugando:
                             enes, proys = [], []
                             trans = {"estado": "ninguno", "inicio": 0}
                             mgraf = fn.cargarmapa(anc, alt)
+                            fn.guardardat(vida, pts, ole, pesos, panchos, pist, jdat["rect"].topleft, mapa, esc=esc, spds=spds, slot=slot_actual, nombre=nombre_partida)
                             estado = "juego"
                         elif b["accion"] == "menu":
                             estado = "menu"
@@ -334,6 +436,9 @@ while jugando:
     if estado == "menu":
         fsurf = fn.framevideo(vid, anc, alt)
         fn.dibujar(pant, fsurf, pizq, pder, wpan, t1, t2, r1, r2, btns, fbtn, mouse)
+    elif estado == "slots":
+        fsurf = fn.framevideo(vid, anc, alt)
+        fn.dibujarslots(pant, fsurf, anc, alt, partidas, mouse, modal_crear, modal_borrar)
     elif estado == "juego":
         fn.actataq(jdat)
         fn.moverjug(jdat, teclas, anc, alt, mapa=1)
@@ -558,7 +663,7 @@ while jugando:
 
     pesos = jdat.get("pesos", pesos)
     if ahora - ult_guardado >= 5000:
-        fn.guardardat(jdat["vida"], jdat.get("puntos", pts), ole, pesos, panchos, pist, posmc, mapa, esc=jdat.get("escudo", 0), spds=spds)
+        fn.guardardat(jdat["vida"], jdat.get("puntos", pts), ole, pesos, panchos, pist, posmc, mapa, esc=jdat.get("escudo", 0), spds=spds, slot=slot_actual, nombre=nombre_partida)
         ult_guardado = ahora
 
 vid.release()
