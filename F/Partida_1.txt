@@ -1,0 +1,11 @@
+nombre=Partida 1
+vida=0
+escudo=0
+puntos=20
+oleada=1
+pesos=55
+panchos=0
+speeds=0
+pistola=0
+posicion_mc=512,669
+mapa=2

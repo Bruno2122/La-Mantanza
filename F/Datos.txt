@@ -8,3 +8,5 @@ speeds=1
 pistola=1
 posicion_mc=1049,592
 mapa=1
+slot=1
+molotovs=0

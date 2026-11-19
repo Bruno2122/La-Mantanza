@@ -1,0 +1,11 @@
+nombre=pepe
+vida=5
+escudo=0
+puntos=366
+oleada=3
+pesos=323
+panchos=1
+speeds=0
+pistola=1
+posicion_mc=689,569
+mapa=1
