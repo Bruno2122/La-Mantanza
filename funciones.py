@@ -111,6 +111,13 @@ def txtfit(tam, texto, col, maxw=None):
 dano_PUNO = 16
 dano_BALA = 28
 
+BAL_MELEE = {
+    "rad_min": 0.70,
+    "rad_max": 0.90,
+    "estanc_ms": 1000,
+    "carga_alc_mult": 0.80,
+}
+
 BAL_PIEDRA = {
     "hp": 24,
     "vel_mult": 0.95,
@@ -868,6 +875,14 @@ def colaoleada(ole):
         "fin": False,
     }
 
+def _anillo_ene(tipo, idx, tot, jitter=True):
+    ang = (idx / max(1, tot)) * 2 * math.pi + (random.uniform(-0.2, 0.2) if jitter else 0.0)
+    if tipo == "barracas":
+        rad = random.uniform(BAL_PIEDRA["rad_min"], BAL_PIEDRA["rad_max"])
+    else:
+        rad = random.uniform(BAL_MELEE["rad_min"], BAL_MELEE["rad_max"])
+    return ang, rad
+
 def instene(tipo, ole, anc, alt, alt_p, exis, jdat=None, idx=0, tot_esp=10):
     cfg = TIPOS_ENE.get(tipo, TIPOS_ENE["hincha"])
     wj, hj, sprs, sprr, sprat, spratr = _sprsene(tipo, alt_p)
@@ -936,7 +951,8 @@ def instene(tipo, ole, anc, alt, alt_p, exis, jdat=None, idx=0, tot_esp=10):
 
     hp_m = round(cfg["hp"] * (1 + 0.10 * (ole - 1)))
     vbase = alt_p * 0.0040 * cfg["vel_mult"] * min(1.35, 1 + 0.015 * (ole - 1)) * random.uniform(0.92, 1.08)
-    angbase = (idx / max(1, tot_esp)) * 2 * math.pi + random.uniform(-0.2, 0.2)
+    angbase, rad_m = _anillo_ene(tipo, idx, tot_esp, jitter=True)
+    t_now = pygame.time.get_ticks()
 
     return {
         "tipo": tipo,
@@ -964,10 +980,13 @@ def instene(tipo, ole, anc, alt, alt_p, exis, jdat=None, idx=0, tot_esp=10):
         "fraataq": 0,
         "ultfra": 0,
         "ultmov": 0,
-        "proximoataq": pygame.time.get_ticks() + random.randint(250, 700),
+        "proximoataq": t_now + random.randint(250, 700),
         "vel": max(1, round(vbase)),
         "ang_at": angbase,
-        "rad_m": random.uniform(BAL_PIEDRA["rad_min"], BAL_PIEDRA["rad_max"]) if tipo == "barracas" else random.uniform(0.9, 1.35)
+        "rad_m": rad_m,
+        "fuera_ms": 0,
+        "ult_t_ene": t_now,
+        "modo_carga": False,
     }
 
 def _obtpiedra():
@@ -1067,6 +1086,9 @@ def danarene(ene, cant, emp_x=0.0, emp_y=0.0, jdat=None):
     ene["golpe_hasta"] = ahora + 160
     ene["kx"] = ene.get("kx", 0.0) + (emp_x * res / esc)
     ene["ky"] = ene.get("ky", 0.0) + (emp_y * res / esc)
+    ene["fuera_ms"] = 0
+    ene["modo_carga"] = False
+    ene["ult_t_ene"] = ahora
 
     addtxtflot(jdat, str(int(d_real)), ene["rect"].centerx, ene["rect"].top - 6, (255, 255, 255))
     addchispas(jdat, ene["hitbox"].centerx, ene["hitbox"].centery, (255, 215, 60), cant=5, fuerza=4.2)
@@ -1152,6 +1174,8 @@ def desptimers(jdat, proys=None, enes=None, dt_ms=0):
                     e["quem_ult_tick"] += dt
                 if "quem_ult_chispa" in e:
                     e["quem_ult_chispa"] += dt
+                if "ult_t_ene" in e:
+                    e["ult_t_ene"] += dt
 
 def inipausa(jdat, ahora=None):
     if isinstance(jdat, dict):
@@ -1558,9 +1582,10 @@ def actene(enes, jdat, proys, obs_l=None, anc=None, alt=None, cam_rect=None):
     alc_base = jdat["hitbox"].height * 1.25
 
     for idx, ene in enumerate(vivos):
-        if "ang_at" not in ene:
-            ene["ang_at"] = (idx / max(1, tot_v)) * 2 * math.pi
-            ene["rad_m"] = random.uniform(bp["rad_min"], bp["rad_max"]) if ene.get("tipo") == "barracas" else random.uniform(0.9, 1.35)
+        if "ang_at" not in ene or "rad_m" not in ene:
+            ang_d, rad_d = _anillo_ene(ene.get("tipo"), idx, tot_v, jitter=False)
+            ene.setdefault("ang_at", ang_d)
+            ene.setdefault("rad_m", rad_d)
 
         desatascar(ene, wm, hm, obs_l)
 
@@ -1572,15 +1597,23 @@ def actene(enes, jdat, proys, obs_l=None, anc=None, alt=None, cam_rect=None):
             _movpaso(ene["rect"], rx, ry, wm, hm, obs_l)
             ene["kx"] = kx * 0.78
             ene["ky"] = ky * 0.78
+            _acthitent(ene)
 
-        dx_j = jcent[0] - ene["hitbox"].centerx
-        dy_j = jcent[1] - ene["hitbox"].centery
+        jcent = jdat["hitbox"].center
+        ecent = ene["hitbox"].center
+        dx_j = jcent[0] - ecent[0]
+        dy_j = jcent[1] - ecent[1]
         dist_j = math.hypot(dx_j, dy_j)
         alc_e = alc_base * ene.get("alc_m", 1.15)
         es_barr = ene.get("tipo") == "barracas"
         en_cam = cam_rect.contains(ene["hitbox"])
+        dt_e = max(0, ahora - ene.get("ult_t_ene", ahora))
+        ene["ult_t_ene"] = ahora
 
         if ene["ataq"]:
+            if not es_barr:
+                ene["fuera_ms"] = 0
+                ene["modo_carga"] = False
             interv_fra = bp["windup_fra_ms"] if es_barr else 110
             tot_fra = len(ene["sprataq"][ene["dir"]])
             if ahora - ene["ultfra"] >= interv_fra:
@@ -1604,8 +1637,8 @@ def actene(enes, jdat, proys, obs_l=None, anc=None, alt=None, cam_rect=None):
                         ene["proximoataq"] = ahora + ene.get("esp_ms", bp["esp_ms"]) + random.randint(-bp["jitter_ms"], bp["jitter_ms"])
         elif dist_j <= alc_e and ahora >= ene["proximoataq"] and (not es_barr or (en_cam and len(lanz_ids) < max_lanz)):
             if es_barr:
-                dx = jcent[0] - ene["hitbox"].centerx
-                dy = jcent[1] - ene["hitbox"].centery
+                dx = jcent[0] - ecent[0]
+                dy = jcent[1] - ecent[1]
                 d = "derecha" if dx >= 0 else "izquierda"
                 if abs(dy) > abs(dx):
                     d = "abajo" if dy >= 0 else "arriba"
@@ -1616,14 +1649,39 @@ def actene(enes, jdat, proys, obs_l=None, anc=None, alt=None, cam_rect=None):
                 ene["ultfra"] = ahora
                 lanz_ids.add(id(ene))
             else:
+                ene["fuera_ms"] = 0
+                ene["modo_carga"] = False
                 proyene(ene, jdat)
         else:
-            rad_fl = alc_e * ene.get("rad_m", 1.1)
-            tx = jcent[0] + math.cos(ene["ang_at"]) * rad_fl
-            ty = jcent[1] + math.sin(ene["ang_at"]) * rad_fl
+            if not es_barr:
+                if dist_j > alc_e:
+                    ene["fuera_ms"] = ene.get("fuera_ms", 0) + dt_e
+                    if ene["fuera_ms"] > BAL_MELEE["estanc_ms"]:
+                        ene["modo_carga"] = True
+                else:
+                    ene["fuera_ms"] = 0
+                    if ene.get("modo_carga") and dist_j <= alc_e * BAL_MELEE["carga_alc_mult"]:
+                        ene["modo_carga"] = False
 
-            vx = tx - ene["rect"].centerx
-            vy = ty - ene["rect"].centery
+            if not es_barr and ene.get("modo_carga"):
+                tx, ty = float(jcent[0]), float(jcent[1])
+            else:
+                rad_fl = alc_e * ene.get("rad_m", bp["rad_max"] if es_barr else BAL_MELEE["rad_max"])
+                tx = jcent[0] + math.cos(ene["ang_at"]) * rad_fl
+                ty = jcent[1] + math.sin(ene["ang_at"]) * rad_fl
+                off_x = ene["rect"].centerx - ecent[0]
+                off_y = ene["rect"].centery - ecent[1]
+                r_cand = ene["rect"].copy()
+                r_cand.center = (int(round(tx)) + off_x, int(round(ty)) + off_y)
+                r_cand.left = max(0, min(r_cand.left, max(0, wm - r_cand.width)))
+                r_cand.top = max(0, min(r_cand.top, max(0, hm - r_cand.height)))
+                tx = float(r_cand.centerx - off_x)
+                ty = float(r_cand.centery - off_y)
+                if not _posvalida(r_cand, wm, hm, obs_l):
+                    tx, ty = float(jcent[0]), float(jcent[1])
+
+            vx = tx - ecent[0]
+            vy = ty - ecent[1]
             dtarg = math.hypot(vx, vy)
 
             dirx = (vx / dtarg) if dtarg > 4 else 0.0
@@ -1666,7 +1724,25 @@ def actene(enes, jdat, proys, obs_l=None, anc=None, alt=None, cam_rect=None):
                 else:
                     ene["dir"] = ("derecha" if dx_j > 0 else "izquierda") if abs(dx_j) >= abs(dy_j) else ("abajo" if dy_j > 0 else "arriba")
 
+                ant_tl = ene["rect"].topleft
                 _movpaso(ene["rect"], movx, movy, wm, hm, obs_l)
+                if ene["rect"].topleft == ant_tl and obs_l:
+                    p_alt = max(1, round(paso))
+                    if movx == 0 and abs(totx) > 1e-4:
+                        _movpaso(ene["rect"], p_alt if totx > 0 else -p_alt, 0, wm, hm, obs_l)
+                    elif movy == 0 and abs(toty) > 1e-4:
+                        _movpaso(ene["rect"], 0, p_alt if toty > 0 else -p_alt, wm, hm, obs_l)
+                    if ene["rect"].topleft == ant_tl:
+                        pies_e = colpies(ene["rect"])
+                        io = pies_e.move(movx, movy).collidelist(obs_l)
+                        if io != -1:
+                            ob = obs_l[io]
+                            if abs(movy) >= abs(movx):
+                                sx = -p_alt if pies_e.centerx <= ob.centerx else p_alt
+                                _movpaso(ene["rect"], sx, 0, wm, hm, obs_l)
+                            else:
+                                sy = -p_alt if pies_e.centery <= ob.centery else p_alt
+                                _movpaso(ene["rect"], 0, sy, wm, hm, obs_l)
 
                 for otro in vivos:
                     if otro is ene:
